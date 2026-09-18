@@ -11,23 +11,23 @@ const dataPath = path.join(__dirname, "..", "data", "campaigns.json");
  *  - representar una campaña en memoria (constructor);
  *  - leer y escribir la persistencia en data/campaigns.json;
  *  - ofrecer métodos estáticos de acceso a datos (findById, findAll, create, update, delete);
- *  - garantizar que toda campaña pertenezca a una Organization existente (organizationId válido).
+ *  - garantizar que toda campaña pertenezca a una Organization existente y aprobada.
  * La capa de rutas/controllers NO debe leer el JSON directamente: siempre pasa por este Model.
  *
  * ATRIBUTOS DE UNA INSTANCIA
  *  - id             {number}  Identificador único. Lo genera el servidor, nunca el cliente.
- *  - organizationId {number}  Id de la Organization dueña de la campaña. Debe existir en Organization.
+ *  - organizationId {number}  Id de la Organization dueña de la campaña. Debe existir y estar aprobada.
  *  - title          {string}  Título de la campaña.
  *  - description    {string}  Descripción de la campaña.
  *  - targetAmount   {number}  Monto objetivo a recaudar.
- *  - status         {string}  Estado de la campaña (ej: "active", "closed").
+ *  - status         {string}  Estado de la campaña (ver Campaign.STATUSES).
  *
  * ESTADO DE LOS MÉTODOS
  *  - constructor -> IMPLEMENTADO.
  *  - findById    -> IMPLEMENTADO.
  *  - findAll     -> IMPLEMENTADO.
- *  - create      -> IMPLEMENTADO (valida organizationId contra Organization).
- *  - update      -> IMPLEMENTADO (valida organizationId si se envía).
+ *  - create      -> IMPLEMENTADO (valida que la Organization exista y esté aprobada).
+ *  - update      -> IMPLEMENTADO (misma validación, si se envía organizationId).
  *  - delete      -> IMPLEMENTADO (eliminación física, igual que Organization.delete).
  */
 class Campaign {
@@ -104,7 +104,7 @@ class Campaign {
 
   /**
    * Crea una nueva campaña, la persiste y devuelve el recurso creado.
-   * Lanza un error si el organizationId no corresponde a una Organization existente.
+   * Lanza un error con statusCode 404 si la Organization no existe, o 409 si no está aprobada.
    * @param {{organizationId: number, title: string, description: string, targetAmount: number, status: string}} data
    * @returns {Campaign}
    */

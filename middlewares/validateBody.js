@@ -8,6 +8,9 @@ const Campaign = require("../models/Campaign");
  * no llega a ejecutarse. Valida campos obligatorios, tipos de datos y valores
  * permitidos, que son tres de los cinco puntos que pide la consigna.
  *
+ * El tipo se controla sobre el valor real del JSON, ANTES de normalizar: un texto
+ * debe llegar como string y un número como number ("150000" o true dan 400).
+ *
  * Cada validador se usa en dos modos:
  *  - "create" (POST): exige los campos obligatorios.
  *  - "update" (PUT): sólo valida los campos que vinieron en el body.
@@ -47,8 +50,14 @@ function validateOrganization(mode) {
       }
     }
 
+    // Primero se valida el tipo real que llegó en el JSON y recién después se
+    // normaliza: String(123) o String(null) convertían datos de otro tipo en
+    // textos válidos. typeof null es "object", así que null también se rechaza.
     if (body.name !== undefined) {
-      const name = String(body.name).trim();
+      if (typeof body.name !== "string") {
+        return invalid(res, "name debe ser un texto de 3 a 100 caracteres");
+      }
+      const name = body.name.trim();
       if (name.length < 3 || name.length > 100) {
         return invalid(res, "name debe ser un texto de 3 a 100 caracteres");
       }
@@ -56,7 +65,10 @@ function validateOrganization(mode) {
     }
 
     if (body.email !== undefined) {
-      const email = String(body.email).trim();
+      if (typeof body.email !== "string") {
+        return invalid(res, "email debe ser un texto");
+      }
+      const email = body.email.trim();
       if (!EMAIL.test(email)) {
         return invalid(res, "email no tiene un formato válido");
       }
@@ -64,7 +76,7 @@ function validateOrganization(mode) {
     }
 
     if (body.type !== undefined) {
-      const type = canonical(body.type, Organization.TYPES);
+      const type = typeof body.type === "string" && canonical(body.type, Organization.TYPES);
       if (!type) {
         return invalid(res, `type inválido. Valores permitidos: ${Organization.TYPES.join(", ")}`);
       }
@@ -72,7 +84,7 @@ function validateOrganization(mode) {
     }
 
     if (body.status !== undefined) {
-      const status = canonical(body.status, Organization.STATUSES);
+      const status = typeof body.status === "string" && canonical(body.status, Organization.STATUSES);
       if (!status) {
         return invalid(res, `status inválido. Valores permitidos: ${Organization.STATUSES.join(", ")}`);
       }
@@ -95,8 +107,12 @@ function validateCampaign(mode) {
       }
     }
 
+    // Mismo criterio que en validateOrganization: tipo real primero, trim después.
     if (body.title !== undefined) {
-      const title = String(body.title).trim();
+      if (typeof body.title !== "string") {
+        return invalid(res, "title debe ser un texto de 5 a 120 caracteres");
+      }
+      const title = body.title.trim();
       if (title.length < 5 || title.length > 120) {
         return invalid(res, "title debe ser un texto de 5 a 120 caracteres");
       }
@@ -104,33 +120,34 @@ function validateCampaign(mode) {
     }
 
     if (body.description !== undefined) {
-      const description = String(body.description).trim();
+      if (typeof body.description !== "string") {
+        return invalid(res, "description debe ser un texto");
+      }
+      const description = body.description.trim();
       if (description.length === 0) {
         return invalid(res, "description no puede estar vacía");
       }
       body.description = description;
     }
 
+    // Los números no se convierten con Number(): Number("150000") y Number(true)
+    // daban valores válidos. En un body JSON un número llega como number.
     if (body.targetAmount !== undefined) {
-      const targetAmount = Number(body.targetAmount);
-      // Number("abc") da NaN, y JSON lo guarda como null: sin este control el dato
-      // quedaba mal grabado sin ningún aviso.
-      if (!Number.isFinite(targetAmount) || targetAmount <= 0) {
+      const targetAmount = body.targetAmount;
+      if (typeof targetAmount !== "number" || !Number.isFinite(targetAmount) || targetAmount <= 0) {
         return invalid(res, "targetAmount debe ser un número mayor a 0");
       }
-      body.targetAmount = targetAmount;
     }
 
     if (body.organizationId !== undefined) {
-      const organizationId = Number(body.organizationId);
-      if (!Number.isInteger(organizationId) || organizationId <= 0) {
+      const organizationId = body.organizationId;
+      if (typeof organizationId !== "number" || !Number.isInteger(organizationId) || organizationId <= 0) {
         return invalid(res, "organizationId debe ser un número entero positivo");
       }
-      body.organizationId = organizationId;
     }
 
     if (body.status !== undefined) {
-      const status = canonical(body.status, Campaign.STATUSES);
+      const status = typeof body.status === "string" && canonical(body.status, Campaign.STATUSES);
       if (!status) {
         return invalid(res, `status inválido. Valores permitidos: ${Campaign.STATUSES.join(", ")}`);
       }

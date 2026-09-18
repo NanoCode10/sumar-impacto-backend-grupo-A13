@@ -5,14 +5,14 @@ const Campaign = require("../models/Campaign");
  * RESPONSABILIDAD DE LA CAPA CONTROLLER
  * El controller traduce entre HTTP y el Model:
  *  - lee lo que llega en req (params, query, body);
- *  - llama al Model correspondiente (Organization);
+ *  - llama al Model correspondiente (Organization, y Campaign para listar sus campañas);
  *  - decide el status HTTP y el cuerpo de la respuesta (res);
  *  - NO accede al JSON ni contiene lógica de persistencia (eso es del Model).
  *
  * Los campos obligatorios, los tipos y los valores permitidos los controla antes
- * middlewares/validate.js, que además deja en req.body el valor canónico.
+ * middlewares/validateBody.js, que además deja en req.body el valor canónico.
  *
- * Las funciones get* responden JSON (API, bajo /api). renderOrganization responde
+ * Las funciones de la API (bajo /api) responden JSON. renderOrganization responde
  * HTML y la usa routes/viewsRoutes.js.
  */
 
@@ -56,12 +56,15 @@ function getOrganizationById(req, res) {
 /**
  * GET /organizations/:id  -> la misma organización, como página Pug.
  */
-function renderOrganization(req, res) {
+function renderOrganization(req, res, next) {
   const id = Number(req.params.id);
   const organization = Organization.findById(id);
 
+  // Es una página HTML: el 404 lo arma el errorHandler con la vista error.pug.
   if (!organization) {
-    return res.status(404).json({ error: "Organización no encontrada" });
+    const err = new Error("Organización no encontrada");
+    err.statusCode = 404;
+    return next(err);
   }
 
   res.render("organization", { organization });
@@ -96,7 +99,7 @@ function updateOrganization(req, res) {
 /**
  * DELETE /api/organizations/:id  -> elimina una organización.
  */
-function deleteOrganization(req, res) {
+function deleteOrganization(req, res, next) {
   const id = Number(req.params.id);
 
   try {
@@ -108,7 +111,7 @@ function deleteOrganization(req, res) {
 
     res.status(200).json({ message: "Organización eliminada correctamente", organization: deletedOrganization });
   } catch (err) {
-    res.status(err.statusCode || 500).json({ error: err.message });
+    next(err);
   }
 }
 

@@ -1,7 +1,7 @@
 {
-  "name": "sumar-impacto-backend-grupo-17",
+  "name": "sumar-impacto-backend-grupo-a13",
   "version": "1.0.0",
-  "description": "TP1 Desarrollo de Sistemas Web Back End - IFTS 29 - Grupo 17",
+  "description": "TP1 Desarrollo de Sistemas Web Back End - IFTS 29 - Grupo A13",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

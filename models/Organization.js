@@ -9,16 +9,16 @@ const dataPath = path.join(__dirname, "..", "data", "organizations.json");
  * RESPONSABILIDAD DE LA CLASE
  * Organization es el Model del dominio "organización". Se encarga de:
  *  - representar una organización en memoria (constructor);
- *  - leer y (a futuro) escribir la persistencia en data/organizations.json;
+ *  - leer y escribir la persistencia en data/organizations.json;
  *  - ofrecer métodos estáticos de acceso a datos (findById, findAll, create, update, delete).
  * La capa de rutas/controllers NO debe leer el JSON directamente: siempre pasa por este Model.
  *
  * ATRIBUTOS DE UNA INSTANCIA
  *  - id     {number}  Identificador único. Lo genera el servidor, nunca el cliente.
  *  - name   {string}  Nombre de la organización.
- *  - type   {string}  Tipo/categoría de la organización (ej: "ONG", "fundación").
+ *  - type   {string}  Tipo/categoría de la organización (ver Organization.TYPES).
  *  - email  {string}  Email de contacto.
- *  - status {string}  Estado de la organización (ej: "active", "inactive").
+ *  - status {string}  Estado de la organización (ver Organization.STATUSES).
  *
  * ESTADO DE LOS MÉTODOS
  *  - constructor  -> IMPLEMENTADO y funcionando.
@@ -31,7 +31,7 @@ const dataPath = path.join(__dirname, "..", "data", "organizations.json");
 class Organization {
   /**
    * Valores permitidos del dominio. Se escriben acá una sola vez y el resto del
-   * código los referencia (middlewares/validate.js), para que no convivan dos
+   * código los referencia (middlewares/validateBody.js y validateQuery.js), para que no convivan dos
    * grafías del mismo valor.
    */
   static TYPES = ["ONG", "fundación", "comedor"];
@@ -142,6 +142,7 @@ class Organization {
 
   /**
    * Elimina una organización.
+   * Lanza un error con statusCode 409 si la organización tiene campañas asociadas.
    * @param {number} id
    */
   static delete(id) {

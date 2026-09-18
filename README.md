@@ -1,4 +1,4 @@
-# SumarImpacto Backend - Grupo 17
+# SumarImpacto Backend - Grupo A13
 
 Proyecto académico desarrollado para la materia **Desarrollo de Sistemas Web Back End**  
 del **IFTS N° 29 - 2do Cuatrimestre 2026**.
@@ -29,41 +29,138 @@ Lo implementado hasta el momento incluye:
 
 - Node.js
 - Express 5
-- arquitectura MVC
-- persistencia en archivos JSON
+- arquitectura MVC (Router → Controller → Model → respuesta JSON o vista Pug)
+- persistencia en archivos JSON (`data/organizations.json`, `data/campaigns.json`)
 - Pug como motor de vistas
-- API REST bajo `/api`: `GET/POST /api/organizations`, `GET/PUT/DELETE /api/organizations/:id`
-- API REST: `GET/POST /api/campaigns`, `GET/PUT/DELETE /api/campaigns/:id` (valida que la organización exista)
-- validación de campos obligatorios, tipos y valores permitidos (`middlewares/validate.js`)
-- vistas Pug: inicio (`/`), detalle de organización y detalle de campaña
 
-La siguiente captura corresponde a una prueba realizada con Postman sobre el
-endpoint `GET /organizations/1`, cuya respuesta fue `HTTP 200 OK`.
+## API REST (JSON)
+
+Todas las rutas de la API están bajo `/api` y responden siempre JSON.
+
+| Método | Ruta                               | Descripción                                                     |
+| ------ | ---------------------------------- | --------------------------------------------------------------- |
+| GET    | `/api/organizations`               | Lista organizaciones (filtros opcionales `type` y `status`)     |
+| POST   | `/api/organizations`               | Crea una organización                                           |
+| GET    | `/api/organizations/:id`           | Obtiene una organización                                        |
+| GET    | `/api/organizations/:id/campaigns` | Lista las campañas de una organización                          |
+| PUT    | `/api/organizations/:id`           | Actualiza una organización                                      |
+| DELETE | `/api/organizations/:id`           | Elimina una organización                                        |
+| GET    | `/api/campaigns`                   | Lista campañas (filtros opcionales `organizationId` y `status`) |
+| POST   | `/api/campaigns`                   | Crea una campaña                                                |
+| GET    | `/api/campaigns/:id`               | Obtiene una campaña                                             |
+| PUT    | `/api/campaigns/:id`               | Actualiza una campaña                                           |
+| DELETE | `/api/campaigns/:id`               | Elimina una campaña                                             |
+
+## Vistas HTML (Pug)
+
+Estas rutas NO forman parte de la API: devuelven páginas HTML.
+
+| Ruta                 | Página                                              |
+| -------------------- | --------------------------------------------------- |
+| `/`                  | Inicio, con el listado de organizaciones y campañas |
+| `/organizations/:id` | Detalle de una organización                         |
+| `/campaigns/:id`     | Detalle de una campaña                              |
+
+## Consultas
+
+- `GET /api/organizations?type=comedor&status=aprobada`: filtra organizaciones
+  combinando dos query params. Los valores se comparan sin distinguir tildes ni
+  mayúsculas (`?type=fundacion` encuentra `fundación`).
+- `GET /api/campaigns?organizationId=1&status=activa`: filtra campañas por la
+  organización a la que pertenecen y por su estado.
+- `GET /api/organizations/1/campaigns`: recorre la relación entre recursos y
+  devuelve las campañas de una organización (404 si la organización no existe).
+
+Un valor de filtro fuera de los permitidos responde `400` indicando los valores válidos.
+
+## Valores permitidos
+
+Definidos en los Models (`models/Organization.js` y `models/Campaign.js`):
+
+- **Organization `type`**: `ONG`, `fundación`, `comedor`
+- **Organization `status`**: `pendiente`, `aprobada`, `suspendida`, `baja` (por defecto `pendiente`)
+- **Campaign `status`**: `borrador`, `activa`, `suspendida`, `cerrada` (por defecto `borrador`)
+
+## Validaciones y manejo de errores
+
+Middlewares en `middlewares/`:
+
+- `validateId.js`: el `:id` de la URL debe ser un entero positivo (si no, `400`).
+- `validateBody.js`: en POST controla campos obligatorios; en POST y PUT controla
+  tipos de datos reales (un número enviado como texto se rechaza) y valores
+  permitidos (si no, `400`).
+- `validateQuery.js`: valida los filtros de los listados (si no, `400`).
+- `errors.js`: responde `404` cuando la ruta no existe y centraliza los errores.
+  En la API responde JSON y en las vistas HTML; un error inesperado devuelve
+  `500` con un mensaje genérico, sin exponer detalles internos.
+
+## Reglas de negocio
+
+- Una campaña debe referenciar una organización existente → `404` si no existe.
+- Para crear una campaña, o moverla a otra organización, la organización debe
+  estar `aprobada` → `409` si está en otro estado.
+- Una organización con campañas asociadas no puede eliminarse → `409`.
+
+## Evidencia de pruebas
+
+La siguiente captura corresponde a una prueba realizada con Postman sobre
+`GET /api/organizations/1`.
 
 <p align="center">
   <img src="docs/images/postman-get-organization-1.png"
-       alt="Prueba en Postman del endpoint GET /organizations/1"
+       alt="Prueba en Postman de GET /api/organizations/1"
        width="900">
 </p>
 
 <p align="center">
-  <em>Prueba exitosa del endpoint GET /organizations/1 utilizando Postman.</em>
+  <em>Prueba de GET /api/organizations/1 con Postman.</em>
 </p>
 
-Casos actualmente verificados:
+Casos verificados sobre la API actual:
 
-- GET /organizations/1 → 200 OK
-- GET /organizations/999 → 404 Not Found
-- GET /organizations/abc → 400 Bad Request
-- GET /organizations/0 → 400 Bad Request
+- GET /api/organizations/1 → 200 OK
+- GET /api/organizations/999 → 404 Not Found
+- GET /api/organizations/abc → 400 Bad Request
+- GET /api/organizations/0 → 400 Bad Request
+
+## Testing automatizado
+
+El proyecto incluye pruebas automatizadas utilizando el módulo nativo de Node.js `node:test` junto con `node:assert/strict`.
+
+No se agregaron dependencias externas para testing.
+
+Actualmente se prueban:
+
+- `validateId.test.js`: validación de IDs válidos e inválidos, incluyendo la delegación de errores mediante `next(err)`.
+- `validateOrganization.test.js`: validaciones de organizaciones, campos obligatorios, tipos, valores permitidos y normalización.
+- `validateCampaigns.test.js`: validaciones de campañas, tipos reales de datos, campos obligatorios y valores permitidos.
+- `reglasNegocio.test.js`: reglas de negocio relacionadas con la creación de campañas y el estado de las organizaciones.
+
+Para ejecutar todas las pruebas:
+
+```bash
+node --test tests/validateId.test.js tests/validateOrganization.test.js tests/validateCampaigns.test.js tests/reglasNegocio.test.js
+```
+
+Resultado actual:
+
+```text
+tests 56
+pass 56
+fail 0
+```
+
+Las pruebas se ejecutan de forma aislada y no dejan modificaciones permanentes en los archivos de persistencia `data/*.json`.
 
 ## Tecnologías
 
 - JavaScript
 - Node.js
-- Express
+- Express 5
+- Pug
 - JSON
-- MongoDB *(más adelante durante la cursada)*
+- Nodemon (desarrollo)
+- MongoDB _(más adelante durante la cursada)_
 
 ## Cómo ejecutar el proyecto
 
@@ -93,23 +190,25 @@ que ejecuta directamente:
 node index.js
 ```
 
-Una vez iniciado el servidor, el endpoint actualmente disponible puede probarse desde el navegador o Postman:
+Una vez iniciado el servidor, la API puede probarse desde el navegador o Postman:
 
 ```text
-http://localhost:3000/organizations/1
+http://localhost:3000/api/organizations/1
 ```
 
 O desde la terminal:
 
 ```bash
-curl -i http://localhost:3000/organizations/1
+curl -i http://localhost:3000/api/organizations/1
 ```
+
+Las vistas HTML se abren desde el navegador en `http://localhost:3000/`.
 
 Los comandos `npm start` y `npm run dev` están definidos en la sección `scripts` de `package.json`.
 
 ## Grupo
 
-**Grupo 17 - Desarrollo de Sistemas Web Back End**
+**Grupo A13 - Desarrollo de Sistemas Web Back End**
 
 ## Estado
 
