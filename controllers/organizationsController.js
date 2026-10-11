@@ -4,84 +4,101 @@ const Organization = require("../models/Organization");
  * RESPONSABILIDAD DE LA CAPA CONTROLLER
  * El controller traduce entre HTTP y el Model:
  *  - lee lo que llega en req (params, query, body);
- *  - llama al Model correspondiente (Organization);
+ *  - llama al Model correspondiente (Organization) usando métodos de Mongoose con async/await;
  *  - decide el status HTTP y el cuerpo de la respuesta (res);
- *  - NO accede al JSON ni contiene lógica de persistencia (eso es del Model).
+ *  - delega el manejo de errores al middleware de errores llamando a next(err).
+ *  - NO contiene lógica de persistencia (eso es del Model).
  *
- * ESTADO
- *  - getOrganizationById -> IMPLEMENTADO.
- *  - getOrganizations    -> IMPLEMENTADO.
- *  - createOrganization  -> IMPLEMENTADO.
- *  - updateOrganization  -> IMPLEMENTADO.
- *  - deleteOrganization  -> IMPLEMENTADO.
  */
 
-function getOrganizationById(req, res) {
-  // Extrae el id de los parámetros de la solicitud y lo convierte a número
-  const id = Number(req.params.id);
+/**
+ * GET /organizations/:id -> renderiza la vista de una organización.
+ */
+async function getOrganizationById(req, res, next) {
+  try {
+    const organization = await Organization.findById(req.params.id);
 
-  // Busca la organización en la base de datos utilizando el modelo Organization y el id proporcionado
-  const organization = Organization.findById(id);
+    if (!organization) {
+      return res.status(404).json({ error: "Organización no encontrada" });
+    }
 
-  // Si no se encuentra la organización, devuelve un error 404 con un mensaje adecuado
-  if (!organization) {
-    return res.status(404).json({ error: "Organización no encontrada" });
+    res.render("organization", { organization });
+  } catch (err) {
+    next(err);
   }
-  // Si se encuentra la organización, renderiza la vista "organization" pasando la organización como contexto
-  res.render("organization", { organization });
 }
 
 /**
- * GET /organizations  -> listado de todas las organizaciones.
+ * GET /organizations -> devuelve todas las organizaciones en formato JSON.
  */
-function getOrganizations(req, res) {
-  const organizations = Organization.findAll();
-  res.status(200).json(organizations);
+async function getOrganizations(req, res, next) {
+  try {
+    const organizations = await Organization.find();
+    res.status(200).json(organizations);
+  } catch (err) {
+    next(err);
+  }
 }
 
 /**
- * POST /organizations  -> crea una organización.
+ * POST /organizations -> crea una nueva organización.
  */
-function createOrganization(req, res) {
-  const { name, type, email, status } = req.body;
+async function createOrganization(req, res, next) {
+  try {
+    const { name, type, email, status } = req.body;
 
-  if (!name || !type || !email) {
-    return res.status(400).json({ error: "Nombre, tipo y email son campos obligatorios" });
+    if (!name || !type || !email) {
+      return res.status(400).json({ error: "Nombre, tipo y email son campos obligatorios" });
+    }
+
+    const newOrganization = await Organization.create({ name, type, email, status });
+    res.status(201).json(newOrganization);
+  } catch (err) {
+    next(err);
   }
-
-  const newOrganization = Organization.create({ name, type, email, status });
-  res.status(201).json(newOrganization);
 }
 
 /**
- * PUT /organizations/:id  -> actualiza una organización existente.
+ * PUT /organizations/:id -> actualiza una organización existente.
  */
-function updateOrganization(req, res) {
-  const id = Number(req.params.id);
-  const { name, type, email, status } = req.body;
+async function updateOrganization(req, res, next) {
+  try {
+    const { name, type, email, status } = req.body;
 
-  const updatedOrganization = Organization.update(id, { name, type, email, status });
+    const updatedOrganization = await Organization.findByIdAndUpdate(
+      req.params.id,
+      { name, type, email, status },
+      { new: true, runValidators: true }
+    );
 
-  if (!updatedOrganization) {
-    return res.status(404).json({ error: "Organización no encontrada" });
+    if (!updatedOrganization) {
+      return res.status(404).json({ error: "Organización no encontrada" });
+    }
+
+    res.status(200).json(updatedOrganization);
+  } catch (err) {
+    next(err);
   }
-
-  res.status(200).json(updatedOrganization);
 }
 
 /**
- * DELETE /organizations/:id  -> elimina una organización.
+ * DELETE /organizations/:id -> elimina una organización.
  */
-function deleteOrganization(req, res) {
-  const id = Number(req.params.id);
+async function deleteOrganization(req, res, next) {
+  try {
+    const deletedOrganization = await Organization.findByIdAndDelete(req.params.id);
 
-  const deletedOrganization = Organization.delete(id);
+    if (!deletedOrganization) {
+      return res.status(404).json({ error: "Organización no encontrada" });
+    }
 
-  if (!deletedOrganization) {
-    return res.status(404).json({ error: "Organización no encontrada" });
+    res.status(200).json({
+      message: "Organización eliminada correctamente",
+      organization: deletedOrganization,
+    });
+  } catch (err) {
+    next(err);
   }
-
-  res.status(200).json({ message: "Organización eliminada correctamente", organization: deletedOrganization });
 }
 
 module.exports = {
@@ -89,5 +106,5 @@ module.exports = {
   getOrganizations,
   createOrganization,
   updateOrganization,
-  deleteOrganization
+  deleteOrganization,
 };
