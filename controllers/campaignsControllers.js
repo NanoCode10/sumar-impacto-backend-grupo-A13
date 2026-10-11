@@ -2,16 +2,6 @@ const Campaign = require("../models/Campaign");
 const Organization = require("../models/Organization");
 
 /**
- * RESPONSABILIDAD DE LA CAPA CONTROLLER
- * El controller traduce entre HTTP y el Model:
- *  - lee lo que llega en req (params, query, body);
- *  - llama al Model correspondiente (Campaign) usando métodos de Mongoose con async/await;
- *  - decide el status HTTP y el cuerpo de la respuesta (res);
- *  - delega el manejo de errores al middleware de errores llamando a next(err).
- *  - NO contiene lógica de persistencia (eso es del Model).
- */
-
-/**
  * GET /campaigns/:id -> renderiza la vista de una campaña.
  */
 async function getCampaignById(req, res, next) {
@@ -34,6 +24,7 @@ async function getCampaignById(req, res, next) {
  */
 async function getCampaigns(req, res, next) {
   try {
+    // populate() reemplaza el ObjectId de organizationId por los datos reales de la organización
     const campaigns = await Campaign.find().populate("organizationId");
     res.status(200).json(campaigns);
   } catch (err) {
@@ -55,7 +46,7 @@ async function createCampaign(req, res, next) {
       });
     }
 
-    // Validar que la organización referenciada exista
+    // Validar que la organización referenciada exista antes de crear
     const org = await Organization.findById(organizationId);
     if (!org) {
       return res.status(404).json({ error: "La organización indicada no existe" });
@@ -82,7 +73,7 @@ async function updateCampaign(req, res, next) {
   try {
     const { title, description, targetAmount, status, organizationId } = req.body;
 
-    // Si se cambia la organización, validar que la nueva exista
+    //  Validar que la organización referenciada exista si se actualiza
     if (organizationId) {
       const org = await Organization.findById(organizationId);
       if (!org) {

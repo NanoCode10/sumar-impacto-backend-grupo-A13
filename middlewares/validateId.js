@@ -1,13 +1,20 @@
-function validateId(req, res, next) {
+const mongoose = require("mongoose");
 
-  // Extrae el id de los parámetros de la solicitud
+/**
+ * validateId: Middleware que verifica que el parámetro :id de la ruta
+ * sea un ObjectId válido de MongoDB (cadena hexadecimal de 24 caracteres).
+ *
+ * Los IDs en MongoDB no son números enteros sino ObjectIds.
+ * Si el id no tiene el formato correcto, Mongoose lanzaría un CastError interno;
+ * este middleware lo intercepta antes y devuelve un 400 descriptivo.
+ */
+function validateId(req, res, next) {
   const { id } = req.params;
 
-  // Verifica si el id es un número entero positivo utilizando una expresión regular 
-  if (!/^[1-9]\d*$/.test(id)) {
-    return res.status(400).json({ error: "El id debe ser un número entero positivo" });
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ error: "El id proporcionado no es un ObjectId válido de MongoDB" });
   }
-  // Si el id es válido, llama a next() para pasar al siguiente middleware o controlador
+
   next();
 }
 

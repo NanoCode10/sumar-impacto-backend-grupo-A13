@@ -12,7 +12,6 @@ const {
 
 const router = express.Router();
 
-// Define las rutas para el recurso /campaigns
 router.get("/", getCampaigns);
 router.post("/", createCampaign);
 router.get("/:id", validateId, getCampaignById);

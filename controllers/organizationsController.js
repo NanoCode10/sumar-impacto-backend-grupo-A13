@@ -1,17 +1,6 @@
 const Organization = require("../models/Organization");
 
 /**
- * RESPONSABILIDAD DE LA CAPA CONTROLLER
- * El controller traduce entre HTTP y el Model:
- *  - lee lo que llega en req (params, query, body);
- *  - llama al Model correspondiente (Organization) usando métodos de Mongoose con async/await;
- *  - decide el status HTTP y el cuerpo de la respuesta (res);
- *  - delega el manejo de errores al middleware de errores llamando a next(err).
- *  - NO contiene lógica de persistencia (eso es del Model).
- *
- */
-
-/**
  * GET /organizations/:id -> renderiza la vista de una organización.
  */
 async function getOrganizationById(req, res, next) {

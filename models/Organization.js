@@ -1,13 +1,9 @@
 const mongoose = require("mongoose");
 
 /**
- * RESPONSABILIDAD DEL MODELO
- * Organization es el Model del dominio "organización". Se encarga de:
- *  - definir el esquema (estructura y validaciones) de una organización en MongoDB;
- *  - ofrecer los métodos de Mongoose para acceso a datos (find, findById, create, etc.).
- * La capa de controllers NO accede directamente a la base de datos: siempre pasa por este Model.
+ * Modelo Organization
  *
- * ATRIBUTOS DE UNA INSTANCIA
+ * Atributos:
  *  - name   {String}  Nombre de la organización. Obligatorio.
  *  - type   {String}  Tipo/categoría de la organización (ej: "ONG", "fundación"). Obligatorio.
  *  - email  {String}  Email de contacto. Obligatorio.

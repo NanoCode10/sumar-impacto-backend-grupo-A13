@@ -1,14 +1,9 @@
 const mongoose = require("mongoose");
 
 /**
- * RESPONSABILIDAD DEL MODELO
- * Campaign es el Model del dominio "campaña". Se encarga de:
- *  - definir el esquema (estructura y validaciones) de una campaña en MongoDB;
- *  - referenciar a la Organization a la que pertenece mediante su ObjectId;
- *  - ofrecer los métodos de Mongoose para acceso a datos (find, findById, create, etc.).
- * La capa de controllers NO accede directamente a la base de datos: siempre pasa por este Model.
+ * Modelo Campaign
  *
- * ATRIBUTOS DE UNA INSTANCIA
+ * Atributos:
  *  - organizationId {ObjectId}  Referencia a la Organization dueña de la campaña. Obligatorio.
  *  - title          {String}    Título de la campaña. Obligatorio.
  *  - description    {String}    Descripción de la campaña. Obligatorio.
@@ -48,7 +43,7 @@ const campaignSchema = new mongoose.Schema(
     },
   },
   {
-    // Agrega automáticamente los campos createdAt y updatedAt
+    //Agrega automáticamente los campos createdAt y updatedAt
     timestamps: true,
   }
 );
