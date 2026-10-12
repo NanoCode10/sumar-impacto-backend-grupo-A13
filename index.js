@@ -1,6 +1,9 @@
 import express from "express";
+import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { conectarDB } from "./config/db.js";
 
 import organizationsRoutes from "./routes/organizationsRoutes.js";
 import campaignsRoutes from "./routes/campaignsRoutes.js";
@@ -11,8 +14,12 @@ import { notFound, errorHandler } from "./middlewares/errors.js";
 // En ES Modules no existe __dirname: se obtiene a partir de la URL de este archivo.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Carga las variables de .env en process.env (MONGO_URI, PORT). quiet evita el
+// mensaje informativo que dotenv imprime en cada arranque.
+dotenv.config({ quiet: true });
+
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 //Middleware incorporado en Express para parsear el cuerpo de las solicitudes entrantes en formato JSON
 app.use(express.json());
@@ -34,6 +41,15 @@ app.use("/", viewsRoutes);
 // Manejo de errores: van al final, cuando ninguna ruta atendió la petición
 app.use(notFound);
 app.use(errorHandler);
+
+// Primero se conecta a MongoDB y recién después el servidor acepta peticiones.
+// Si la conexión falla no tiene sentido levantarlo: se muestra el motivo y se termina.
+try {
+  await conectarDB();
+} catch (err) {
+  console.error(err.message);
+  process.exit(1);
+}
 
 app.listen(PORT, () => {
   console.log(`Servidor escuchando en http://localhost:${PORT}`);
