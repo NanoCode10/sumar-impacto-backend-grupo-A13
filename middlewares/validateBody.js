@@ -1,4 +1,5 @@
 import norm from "../utils/norm.js";
+import esObjectId from "../utils/objectId.js";
 import Organization from "../models/Organization.js";
 import Campaign from "../models/Campaign.js";
 
@@ -16,11 +17,12 @@ import Campaign from "../models/Campaign.js";
  *  - "update" (PUT): sólo valida los campos que vinieron en el body.
  *
  * Además deja en req.body el VALOR CANÓNICO de cada lista (el de la lista, con
- * su tilde), no lo que escribió el cliente: así en data/*.json hay una sola
+ * su tilde), no lo que escribió el cliente: así en la base hay una sola
  * grafía de cada valor.
  */
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// El formato de email se define una sola vez, en el modelo (también lo usa el schema).
+const EMAIL = Organization.EMAIL;
 
 const canonical = (value, allowed) => allowed.find((item) => norm(item) === norm(value));
 
@@ -131,10 +133,11 @@ function validateCampaign(mode) {
       }
     }
 
+    // organizationId es el id de una organización: un ObjectId que llega como texto.
+    // Que la organización exista y esté aprobada lo decide el modelo (404/409).
     if (body.organizationId !== undefined) {
-      const organizationId = body.organizationId;
-      if (typeof organizationId !== "number" || !Number.isInteger(organizationId) || organizationId <= 0) {
-        return invalid(res, "organizationId debe ser un número entero positivo");
+      if (!esObjectId(body.organizationId)) {
+        return invalid(res, "organizationId debe ser un ObjectId válido (24 caracteres hexadecimales)");
       }
     }
 

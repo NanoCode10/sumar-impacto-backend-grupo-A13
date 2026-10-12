@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import validateId from "../middlewares/validateId.js";
 
-const MENSAJE_ID_INVALIDO = "El id debe ser un número entero positivo";
+const MENSAJE_ID_INVALIDO = "El id debe ser un ObjectId válido (24 caracteres hexadecimales)";
 
 // validateId no responde con res.status().json(): ante un id inválido crea un
 // Error con statusCode 400 y lo delega con next(err) al errorHandler global.
@@ -69,28 +69,34 @@ function probarInvalido(nombre, entrada) {
   assert.equal(resultado.respuesta, undefined);
 }
 
-test("acepta un ID entero positivo", () => {
-  probarValido("ID entero positivo", "1");
+// Los ids son ObjectId de MongoDB: 24 caracteres hexadecimales.
+test("acepta un ObjectId válido", () => {
+  probarValido("ObjectId válido", "64b7f0c2a1b2c3d4e5f60718");
 });
 
-test("acepta un ID entero positivo mayor", () => {
-  probarValido("ID entero positivo mayor", "250");
+test("acepta un ObjectId en mayúsculas", () => {
+  probarValido("ObjectId en mayúsculas", "64B7F0C2A1B2C3D4E5F60718");
 });
 
-test("rechaza el ID cero", () => {
-  probarInvalido("ID cero", "0");
+test("rechaza un ID numérico (formato anterior)", () => {
+  probarInvalido("ID numérico", "1");
 });
 
-test("rechaza un ID negativo", () => {
-  probarInvalido("ID negativo", "-1");
+test("rechaza un ID de 23 caracteres", () => {
+  probarInvalido("ID de 23 caracteres", "64b7f0c2a1b2c3d4e5f6071");
 });
 
-test("rechaza un ID decimal", () => {
-  probarInvalido("ID decimal", "1.5");
+test("rechaza un ID de 25 caracteres", () => {
+  probarInvalido("ID de 25 caracteres", "64b7f0c2a1b2c3d4e5f607180");
 });
 
-test("rechaza un ID con letras", () => {
-  probarInvalido("ID con letras", "abc");
+test("rechaza un ID con caracteres no hexadecimales", () => {
+  probarInvalido("ID no hexadecimal", "64b7f0c2a1b2c3d4e5f6071z");
+});
+
+// mongoose.Types.ObjectId.isValid aceptaría este caso: por eso no se usa.
+test("rechaza un texto de 12 caracteres", () => {
+  probarInvalido("ID de 12 caracteres", "abcdefghijkl");
 });
 
 test("rechaza un ID vacío", () => {
