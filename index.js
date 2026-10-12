@@ -17,6 +17,9 @@ app.use(express.json());
 app.set("view engine", "pug");
 app.set("views", path.join(__dirname, "views"));
 
+// Archivos estáticos (JS del navegador que usa fetch contra la API). Middleware incorporado en Express.
+app.use(express.static(path.join(__dirname, "public")));
+
 // API REST: responde siempre JSON
 app.use("/api/organizations", organizationsRoutes);
 app.use("/api/campaigns", campaignsRoutes);

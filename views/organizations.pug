@@ -1,0 +1,52 @@
+extends layout
+
+block content
+  .card
+    h2 Gestión de organizaciones
+    p La tabla se carga y se actualiza con fetch() contra la API, sin recargar la página.
+
+    form#org-form
+      h3#form-titulo Nueva organización
+      input(type="hidden", name="id")
+
+      label(for="name") Nombre
+      input#name(type="text", name="name", required, minlength="3", maxlength="100")
+
+      label(for="type") Tipo
+      select#type(name="type", required)
+        option(value="") -- Elegí un tipo --
+        each type in types
+          option(value=type)= type
+
+      label(for="email") Email
+      input#email(type="email", name="email", required)
+
+      label(for="status") Estado
+      select#status(name="status")
+        option(value="") (sin indicar)
+        each status in statuses
+          option(value=status)= status
+
+      .acciones
+        button(type="submit") Guardar
+        button#btn-cancelar(type="button", hidden) Cancelar edición
+
+    p#mensaje(role="status")
+
+  h3.section-title Organizaciones
+  table.tabla
+    thead
+      tr
+        th Nombre
+        th Tipo
+        th Email
+        th Estado
+        th Acciones
+    tbody#org-tbody
+      tr
+        td(colspan="5") Cargando...
+
+  p
+    a(href="/") Volver al inicio
+
+  script(src="/js/organizations.js")

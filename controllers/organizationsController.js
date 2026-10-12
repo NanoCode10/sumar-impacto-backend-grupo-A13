@@ -71,6 +71,20 @@ function renderOrganization(req, res, next) {
 }
 
 /**
+ * GET /organizations  -> página de gestión de organizaciones.
+ * La tabla no se arma acá: la completa el navegador con fetch() contra la API
+ * (public/js/organizations.js). Sólo se pasan los valores permitidos para los
+ * <select>, así siguen definidos una única vez en el Model.
+ */
+function renderOrganizations(req, res) {
+  res.render("organizations", {
+    title: "Organizaciones - SumarImpacto",
+    types: Organization.TYPES,
+    statuses: Organization.STATUSES
+  });
+}
+
+/**
  * POST /api/organizations  -> crea una organización.
  */
 function createOrganization(req, res) {
@@ -120,6 +134,7 @@ module.exports = {
   getOrganizationCampaigns,
   getOrganizationById,
   renderOrganization,
+  renderOrganizations,
   createOrganization,
   updateOrganization,
   deleteOrganization

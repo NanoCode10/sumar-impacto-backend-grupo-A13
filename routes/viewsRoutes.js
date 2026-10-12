@@ -2,7 +2,7 @@ const express = require("express");
 
 const validateId = require("../middlewares/validateId");
 const { renderHome } = require("../controllers/viewsController");
-const { renderOrganization } = require("../controllers/organizationsController");
+const { renderOrganization, renderOrganizations } = require("../controllers/organizationsController");
 const { renderCampaign } = require("../controllers/campaignsController");
 
 /**
@@ -14,6 +14,8 @@ const router = express.Router();
 
 router.get("/", renderHome);
 
+// Página de gestión: los datos los pide el navegador con fetch() a /api/organizations.
+router.get("/organizations", renderOrganizations);
 router.get("/organizations/:id", validateId, renderOrganization);
 router.get("/campaigns/:id", validateId, renderCampaign);
 
