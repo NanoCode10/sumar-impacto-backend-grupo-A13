@@ -11,76 +11,25 @@
  *
  * Las validaciones y reglas de negocio (400, 404, 409) las resuelve el backend;
  * acá sólo se muestra el mensaje { error } que devuelve la API.
- * El id se trata como un valor opaco (no se asume que sea un número), para que
- * este archivo siga sirviendo cuando los ids vengan de MongoDB.
+ * Las funciones pedir, urlRecurso, mostrarMensaje, celda... vienen de comun.js.
  */
 
 const API = "/api/organizations";
 
 const form = document.getElementById("org-form");
 const tbody = document.getElementById("org-tbody");
-const mensaje = document.getElementById("mensaje");
 const tituloForm = document.getElementById("form-titulo");
 const btnCancelar = document.getElementById("btn-cancelar");
 
-/**
- * Hace la petición y devuelve el JSON de la respuesta. Si el status no es 2xx
- * lanza un Error con el mensaje que mandó la API.
- */
-async function pedir(url, opciones = {}) {
-  const res = await fetch(url, {
-    ...opciones,
-    headers: { "Content-Type": "application/json" }
-  });
-  const datos = await res.json();
-
-  if (!res.ok) {
-    throw new Error(datos.error || `Error ${res.status}`);
-  }
-  return datos;
-}
-
-function mostrarMensaje(texto, tipo) {
-  mensaje.textContent = texto;
-  mensaje.className = tipo;
-}
-
-// Celda de texto. Se usa textContent y no innerHTML: los datos vienen del usuario
-// y no deben interpretarse como HTML.
-function celda(texto) {
-  const td = document.createElement("td");
-  td.textContent = texto;
-  return td;
-}
-
-function boton(texto, alHacerClic) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.textContent = texto;
-  btn.addEventListener("click", alHacerClic);
-  return btn;
-}
-
 function crearFila(org) {
   const tr = document.createElement("tr");
-
-  const tdNombre = document.createElement("td");
-  const enlace = document.createElement("a");
-  enlace.href = `/organizations/${encodeURIComponent(org.id)}`;
-  enlace.textContent = org.name;
-  tdNombre.appendChild(enlace);
-
-  const tdEstado = document.createElement("td");
-  const badge = document.createElement("span");
-  badge.className = "badge";
-  badge.textContent = org.status;
-  tdEstado.appendChild(badge);
-
-  const tdAcciones = document.createElement("td");
-  tdAcciones.appendChild(boton("Editar", () => editar(org)));
-  tdAcciones.appendChild(boton("Eliminar", () => eliminar(org)));
-
-  tr.append(tdNombre, celda(org.type), celda(org.email), tdEstado, tdAcciones);
+  tr.append(
+    celdaEnlace(org.name, urlRecurso("/organizations", org.id)),
+    celda(org.type),
+    celda(org.email),
+    celdaBadge(org.status),
+    celdaAcciones(() => editar(org), () => eliminar(org))
+  );
   return tr;
 }
 
@@ -88,18 +37,12 @@ function crearFila(org) {
 async function cargarOrganizaciones() {
   try {
     const organizaciones = await pedir(API);
-    tbody.replaceChildren();
 
     if (organizaciones.length === 0) {
-      const tr = document.createElement("tr");
-      const td = celda("Sin organizaciones registradas.");
-      td.colSpan = 5;
-      tr.appendChild(td);
-      tbody.appendChild(tr);
+      filaUnica(tbody, "Sin organizaciones registradas.", 5);
       return;
     }
-
-    organizaciones.forEach((org) => tbody.appendChild(crearFila(org)));
+    tbody.replaceChildren(...organizaciones.map(crearFila));
   } catch (err) {
     mostrarMensaje(`No se pudo cargar el listado: ${err.message}`, "error");
   }
@@ -132,7 +75,7 @@ async function eliminar(org) {
   }
 
   try {
-    await pedir(`${API}/${encodeURIComponent(org.id)}`, { method: "DELETE" });
+    await pedir(urlRecurso(API, org.id), { method: "DELETE" });
     // Si justo se estaba editando esta organización, el formulario vuelve a alta.
     if (form.elements.id.value === String(org.id)) {
       limpiarFormulario();
@@ -166,7 +109,7 @@ form.addEventListener("submit", async (event) => {
 
   try {
     if (id) {
-      const actualizada = await pedir(`${API}/${encodeURIComponent(id)}`, {
+      const actualizada = await pedir(urlRecurso(API, id), {
         method: "PUT",
         body: JSON.stringify(body)
       });

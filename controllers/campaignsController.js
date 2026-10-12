@@ -52,6 +52,19 @@ function renderCampaign(req, res, next) {
 }
 
 /**
+ * GET /campaigns  -> página de gestión de campañas.
+ * Igual que renderOrganizations: la tabla y el <select> de organizaciones los
+ * completa el navegador con fetch() (public/js/campaigns.js). Acá sólo se pasan
+ * los estados permitidos, definidos una única vez en el Model.
+ */
+function renderCampaigns(req, res) {
+  res.render("campaigns", {
+    title: "Campañas - SumarImpacto",
+    statuses: Campaign.STATUSES
+  });
+}
+
+/**
  * POST /api/campaigns  -> crea una campaña.
  */
 function createCampaign(req, res, next) {
@@ -103,6 +116,7 @@ module.exports = {
   getCampaigns,
   getCampaignById,
   renderCampaign,
+  renderCampaigns,
   createCampaign,
   updateCampaign,
   deleteCampaign
