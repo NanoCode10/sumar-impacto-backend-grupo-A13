@@ -1,8 +1,15 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const norm = require("../utils/norm");
+import norm from "../utils/norm.js";
+// Import circular: Organization también importa Campaign. Funciona porque los
+// dos modelos sólo se usan entre sí DENTRO de los métodos, nunca al cargar el
+// módulo. No usar Organization en propiedades static ni en código de nivel superior.
+import Organization from "./Organization.js";
 
+// En ES Modules no existe __dirname: se obtiene a partir de la URL de este archivo.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataPath = path.join(__dirname, "..", "data", "campaigns.json");
 
 /**
@@ -109,9 +116,7 @@ class Campaign {
    * @returns {Campaign}
    */
   static create(data) {
-    // Validar que la organización referenciada exista (importación diferida para evitar
-    // dependencia circular en el momento de la carga del módulo).
-    const Organization = require("./Organization");
+    // Validar que la organización referenciada exista.
     const org = Organization.findById(Number(data.organizationId));
     if (!org) {
       const err = new Error("La organización indicada no existe");
@@ -167,7 +172,6 @@ class Campaign {
 
     // Si se quiere cambiar organizationId, validar que la nueva organización exista.
     if (data.organizationId !== undefined) {
-      const Organization = require("./Organization");
       const org = Organization.findById(Number(data.organizationId));
       if (!org) {
         const err = new Error("La organización indicada no existe");
@@ -234,4 +238,4 @@ class Campaign {
   }
 }
 
-module.exports = Campaign;
+export default Campaign;

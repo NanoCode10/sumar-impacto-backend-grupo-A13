@@ -54,4 +54,4 @@ function errorHandler(err, req, res, next) {
   res.status(codigo).render("error", { title: "Error", codigo, mensaje });
 }
 
-module.exports = { notFound, errorHandler };
+export { notFound, errorHandler };

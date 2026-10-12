@@ -1,8 +1,15 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const norm = require("../utils/norm");
+import norm from "../utils/norm.js";
+// Import circular: Campaign también importa Organization. Funciona porque los
+// dos modelos sólo se usan entre sí DENTRO de los métodos, nunca al cargar el
+// módulo. No usar Campaign en propiedades static ni en código de nivel superior.
+import Campaign from "./Campaign.js";
 
+// En ES Modules no existe __dirname: se obtiene a partir de la URL de este archivo.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataPath = path.join(__dirname, "..", "data", "organizations.json");
 
 /**
@@ -155,9 +162,7 @@ class Organization {
     }
 
     // Regla de negocio: una organización con campañas no se elimina, porque esas
-    // campañas quedarían apuntando a un id que ya no existe. Import diferido,
-    // igual que en Campaign, para no crear un ciclo entre los dos modelos.
-    const Campaign = require("./Campaign");
+    // campañas quedarían apuntando a un id que ya no existe.
     const campanias = Campaign.findAll().filter((campania) => campania.organizationId === id);
     if (campanias.length > 0) {
       const err = new Error(
@@ -174,4 +179,4 @@ class Organization {
   }
 }
 
-module.exports = Organization;
+export default Organization;

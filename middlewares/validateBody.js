@@ -1,6 +1,6 @@
-const norm = require("../utils/norm");
-const Organization = require("../models/Organization");
-const Campaign = require("../models/Campaign");
+import norm from "../utils/norm.js";
+import Organization from "../models/Organization.js";
+import Campaign from "../models/Campaign.js";
 
 /**
  * VALIDACIÓN DE LOS DATOS QUE MANDA EL CLIENTE
@@ -151,4 +151,4 @@ function validateCampaign(mode) {
   };
 }
 
-module.exports = { validateOrganization, validateCampaign };
+export { validateOrganization, validateCampaign };

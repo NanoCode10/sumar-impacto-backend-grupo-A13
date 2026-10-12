@@ -1,7 +1,7 @@
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const validateId = require("../middlewares/validateId");
+import validateId from "../middlewares/validateId.js";
 
 const MENSAJE_ID_INVALIDO = "El id debe ser un número entero positivo";
 

@@ -1,6 +1,6 @@
-const norm = require("../utils/norm");
-const Organization = require("../models/Organization");
-const Campaign = require("../models/Campaign");
+import norm from "../utils/norm.js";
+import Organization from "../models/Organization.js";
+import Campaign from "../models/Campaign.js";
 
 /**
  * VALIDACIÓN DE LOS PARÁMETROS DE CONSULTA (?type=ONG&status=aprobada)
@@ -68,4 +68,4 @@ function validateCampaignQuery(req, res, next) {
   next();
 }
 
-module.exports = { validateOrganizationQuery, validateCampaignQuery };
+export { validateOrganizationQuery, validateCampaignQuery };

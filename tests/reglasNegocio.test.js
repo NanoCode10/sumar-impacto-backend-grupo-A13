@@ -1,13 +1,16 @@
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const fs = require("node:fs");
-const path = require("node:path");
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const { validateCampaign } = require("../middlewares/validateBody");
-const Campaign = require("../models/Campaign");
-const Organization = require("../models/Organization");
+import { validateCampaign } from "../middlewares/validateBody.js";
+import Campaign from "../models/Campaign.js";
+import Organization from "../models/Organization.js";
 
+// En ES Modules no existe __dirname: se obtiene a partir de la URL de este archivo.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const campaignsPath = path.join(__dirname, "..", "data", "campaigns.json");
 
 function ejecutarValidador(body, mode = "create") {
@@ -100,8 +103,8 @@ test("Campaign.create rechaza una organización no aprobada (id 4)", () => {
   };
 
   // En data/organizations.json no hay organizaciones pendientes: se reemplaza
-  // temporalmente Organization.findById (Campaign.create la consulta vía require
-  // diferido, que devuelve esta misma clase) y se restaura siempre en el finally.
+  // temporalmente Organization.findById (Campaign.create la consulta a través de
+  // su import, que es esta misma clase) y se restaura siempre en el finally.
   const findByIdOriginal = Organization.findById;
   Organization.findById = (id) =>
     id === 4 ? new Organization(4, "Organización pendiente", "ONG", "pendiente@test.org", "pendiente") : null;

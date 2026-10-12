@@ -1,5 +1,5 @@
-const Organization = require("../models/Organization");
-const Campaign = require("../models/Campaign");
+import Organization from "../models/Organization.js";
+import Campaign from "../models/Campaign.js";
 
 /**
  * RESPONSABILIDAD DE LA CAPA CONTROLLER
@@ -129,7 +129,7 @@ function deleteOrganization(req, res, next) {
   }
 }
 
-module.exports = {
+export {
   getOrganizations,
   getOrganizationCampaigns,
   getOrganizationById,

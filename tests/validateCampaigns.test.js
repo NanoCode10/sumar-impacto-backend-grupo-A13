@@ -1,7 +1,7 @@
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const { validateCampaign } = require("../middlewares/validateBody");
+import { validateCampaign } from "../middlewares/validateBody.js";
 
 function ejecutarValidador(body, mode = "create") {
   const req = { body };

@@ -1,4 +1,4 @@
-const Campaign = require("../models/Campaign");
+import Campaign from "../models/Campaign.js";
 
 /**
  * RESPONSABILIDAD DE LA CAPA CONTROLLER
@@ -112,7 +112,7 @@ function deleteCampaign(req, res) {
   res.status(200).json({ message: "Campaña eliminada correctamente", campaign: deletedCampaign });
 }
 
-module.exports = {
+export {
   getCampaigns,
   getCampaignById,
   renderCampaign,

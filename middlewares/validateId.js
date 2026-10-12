@@ -17,4 +17,4 @@ function validateId(req, res, next) {
   next();
 }
 
-module.exports = validateId;
+export default validateId;

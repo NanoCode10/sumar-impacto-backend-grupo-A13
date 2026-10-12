@@ -1,11 +1,15 @@
-const express = require("express");
-const path = require("path");
+import express from "express";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const organizationsRoutes = require("./routes/organizationsRoutes");
-const campaignsRoutes = require("./routes/campaignsRoutes");
-const viewsRoutes = require("./routes/viewsRoutes");
+import organizationsRoutes from "./routes/organizationsRoutes.js";
+import campaignsRoutes from "./routes/campaignsRoutes.js";
+import viewsRoutes from "./routes/viewsRoutes.js";
 
-const { notFound, errorHandler } = require("./middlewares/errors");
+import { notFound, errorHandler } from "./middlewares/errors.js";
+
+// En ES Modules no existe __dirname: se obtiene a partir de la URL de este archivo.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 const PORT = 3000;
