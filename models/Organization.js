@@ -5,11 +5,19 @@ const mongoose = require("mongoose");
  *
  * Atributos:
  *  - name   {String}  Nombre de la organización. Obligatorio.
- *  - type   {String}  Tipo/categoría de la organización (ej: "ONG", "fundación"). Obligatorio.
+ *  - type   {String}  Tipo. Valores permitidos: "ONG", "fundación", "comedor".
  *  - email  {String}  Email de contacto. Obligatorio.
- *  - status {String}  Estado de la organización. Valores permitidos: "active", "inactive", "approved".
- *                     Por defecto: "approved".
+ *  - status {String}  Estado. Valores permitidos: "pendiente", "aprobada", "suspendida", "baja".
+ *                     Por defecto: "pendiente".
  */
+
+/** Constantes exportadas para que los middlewares de validación las puedan reutilizar */
+const TYPES = ["ONG", "fundación", "comedor"];
+const STATUSES = ["pendiente", "aprobada", "suspendida", "baja"];
+
+/** Único estado que habilita a tener campañas. */
+const APPROVED = "aprobada";
+
 const organizationSchema = new mongoose.Schema(
   {
     name: {
@@ -20,6 +28,10 @@ const organizationSchema = new mongoose.Schema(
     type: {
       type: String,
       required: [true, "El tipo de organización es obligatorio"],
+      enum: {
+        values: TYPES,
+        message: `El tipo debe ser uno de: ${TYPES.join(", ")}`,
+      },
       trim: true,
     },
     email: {
@@ -31,10 +43,10 @@ const organizationSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ["active", "inactive", "approved"],
-        message: "El estado debe ser 'active', 'inactive' o 'approved'",
+        values: STATUSES,
+        message: `El estado debe ser uno de: ${STATUSES.join(", ")}`,
       },
-      default: "approved",
+      default: "pendiente",
     },
   },
   {
@@ -43,4 +55,10 @@ const organizationSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Organization", organizationSchema);
+const Organization = mongoose.model("Organization", organizationSchema);
+
+Organization.TYPES = TYPES;
+Organization.STATUSES = STATUSES;
+Organization.APPROVED = APPROVED;
+
+module.exports = Organization;
