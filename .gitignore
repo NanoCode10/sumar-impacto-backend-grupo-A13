@@ -1,3 +1,6 @@
 node_modules/
+<<<<<<< Updated upstream
 # Variables de entorno
+=======
+>>>>>>> Stashed changes
 .env
