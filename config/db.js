@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
-
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
 /**
  * connectDB: Establece la conexión con MongoDB usando Mongoose.
  * La URI de conexión se lee desde la variable de entorno MONGODB_URI,
