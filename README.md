@@ -274,7 +274,7 @@ Los valores de los filtros se comparan sin distinguir tildes ni mayúsculas
 Definidos una sola vez en los Models (`models/Organization.js` y `models/Campaign.js`):
 
 - **Organization `type`**: `ONG`, `fundación`, `comedor`
-- **Organization `status`**: `pendiente`, `aprobada`, `suspendida`, `baja` (por defecto `pendiente`)
+- **Organization `status`**: `pendiente`, `aprobada`, `suspendida`, `desvinculada` (por defecto `pendiente`)
 - **Campaign `status`**: `borrador`, `activa`, `suspendida`, `cerrada` (por defecto `borrador`)
 
 ### Validaciones

@@ -24,7 +24,7 @@ import Campaign from "./Campaign.js";
 // Valores permitidos del dominio. Se definen una sola vez y el resto del código
 // los referencia (validateBody, validateQuery, vistas).
 const TYPES = ["ONG", "fundación", "comedor"];
-const STATUSES = ["pendiente", "aprobada", "suspendida", "baja"];
+const STATUSES = ["pendiente", "aprobada", "suspendida", "desvinculada"];
 
 // Único estado que habilita a tener campañas. Se referencia desde Campaign.
 const APPROVED = "aprobada";
