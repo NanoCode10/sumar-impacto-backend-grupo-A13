@@ -17,7 +17,8 @@ import Campaign from "../models/Campaign.js";
 async function renderHome(req, res, next) {
   try {
     const organizations = await Organization.buscarTodas();
-    const campaigns = await Campaign.buscarTodas();
+    // Igual que el detalle de campaña: la página muestra el nombre de la organización.
+    const campaigns = await Campaign.buscarTodas().populate("organizationId", "name");
     res.render("home", { title: "SumarImpacto", organizations, campaigns });
   } catch (err) {
     next(err);

@@ -47,7 +47,9 @@ async function getCampaignById(req, res, next) {
  */
 async function renderCampaign(req, res, next) {
   try {
-    const campaign = await Campaign.findById(req.params.id);
+    // populate sólo en las páginas: trae nombre y estado de la organización para
+    // mostrarla. La API devuelve organizationId como id, sin populate.
+    const campaign = await Campaign.findById(req.params.id).populate("organizationId", "name status");
 
     // Es una página HTML: el 404 lo arma el errorHandler con la vista error.pug.
     if (!campaign) {
