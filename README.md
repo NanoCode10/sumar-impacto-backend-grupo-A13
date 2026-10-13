@@ -23,10 +23,11 @@ El proyecto está en la **segunda entrega**. Respecto de la primera:
 - la persistencia pasó de archivos JSON a **MongoDB local** con **Mongoose**;
 - el backend pasó de CommonJS a **ES Modules** (`import` / `export`);
 - los controllers son **asincrónicos** (`async` / `await`);
-- se agregaron pantallas de gestión que consumen la API con **`fetch()`**.
+- se agregaron pantallas de gestión que consumen la API con **`fetch()`**;
+- el `DELETE` pasó a ser **borrado lógico**;
+- se agregaron **usuarios** con contraseña hasheada, **roles** y **login**.
 
-Las funcionalidades que faltan para completar la entrega están en
-[Pendiente para la segunda entrega](#pendiente-para-la-segunda-entrega).
+Lo que queda fuera de esta entrega está en [Desarrollo futuro](#desarrollo-futuro).
 
 ## Tecnologías
 
@@ -67,17 +68,17 @@ La **API** (`/api/...`) responde siempre JSON y las **vistas** (`/`, `/organizat
 ```text
 ├── config/
 │   └── db.js                  # conexión a MongoDB (conectarDB)
-├── controllers/               # organizations, campaigns y views
-├── data/                      # datos de ejemplo de la primera entrega (los usa el seed)
+├── controllers/               # organizations, campaigns, users, auth y views
+├── data/                      # datos de ejemplo que carga el seed
 ├── docs/images/               # capturas
 ├── middlewares/               # validateId, validateBody, validateQuery, errors
-├── models/                    # Organization y Campaign (Mongoose)
+├── models/                    # Organization, Campaign y User (Mongoose)
 ├── public/js/                 # JavaScript del navegador (fetch)
 ├── routes/                    # rutas de la API y de las vistas
 ├── scripts/
 │   └── seed.js                # carga de datos de ejemplo
 ├── tests/                     # pruebas automatizadas
-├── utils/                     # norm.js y objectId.js
+├── utils/                     # norm.js, objectId.js y softDelete.js (borrado lógico)
 ├── views/                     # plantillas Pug
 ├── .env.example               # plantilla de variables de entorno
 └── index.js                   # punto de entrada
@@ -171,7 +172,7 @@ La base empieza vacía: para cargar los datos de ejemplo ver la sección siguien
 
 ## Inicialización de la base de datos con datos de ejemplo (seed)
 
-`scripts/seed.js` carga en MongoDB las organizaciones y campañas de ejemplo. Es una
+`scripts/seed.js` carga en MongoDB las organizaciones, campañas y usuarios de ejemplo. Es una
 herramienta para **inicializar los datos de ejemplo** y **no se ejecuta automáticamente**:
 hay que correrlo a mano.
 
@@ -182,15 +183,17 @@ npm run seed -- --confirm-db=sumarimpacto
 Cómo funciona:
 
 1. Toma los datos de `data/organizations.json` y `data/campaigns.json` (eran la
-   persistencia de la primera entrega). Esos archivos **sólo se leen**, no se modifican.
+   persistencia de la primera entrega) y de `data/users.json`. Esos archivos **sólo se
+   leen**, no se modifican.
 2. En los JSON las campañas apuntan a su organización con un id numérico. El script
    arma una tabla "id del JSON → ObjectId" y guarda cada campaña con el ObjectId de su
    organización, así **se conserva la relación**.
-3. En una base inicialmente vacía carga **3 organizaciones y 1 campaña**.
+3. En una base inicialmente vacía carga **3 organizaciones, 1 campaña y 4 usuarios**.
 4. **No borra ni sobrescribe** registros existentes.
 5. Evita duplicados con estos criterios:
    - una organización se omite si ya existe otra con el **mismo email**;
-   - una campaña se omite si su organización ya tiene una con el **mismo título**.
+   - una campaña se omite si su organización ya tiene una con el **mismo título**;
+   - un usuario se omite si ya existe otro con el **mismo username o email**.
 6. Las campañas se crean con las mismas reglas que la API: la organización debe
    existir y estar `aprobada`.
 7. **Exige confirmar la base destino** con `--confirm-db`. Después de conectarse compara
@@ -207,7 +210,23 @@ Al terminar muestra un resumen:
 Resumen:
   Organizaciones -> creadas: 3, omitidas: 0
   Campañas       -> creadas: 1, omitidas: 0
+  Usuarios       -> creados: 4, omitidos: 0
 ```
+
+### Usuarios de prueba
+
+**Credenciales ficticias, sólo para pruebas.** Las contraseñas están en
+`data/users.json` sin hashear porque son datos de prueba conocidos; el seed las hashea
+al cargarlas y en la base queda sólo el hash.
+
+| Usuario | Contraseña | Rol |
+| ------- | ---------- | --- |
+| `superadmin` | `superadmin` | superadmin |
+| `administrador` | `administrador` | administrador |
+| `auditoria` | `auditoria` | auditoria |
+| `organizacion` | `organizacion` | organizacion |
+
+Se puede entrar con el usuario o con el email (`<usuario>@sumarimpacto.org`).
 
 ## API REST (JSON)
 
@@ -226,6 +245,24 @@ Todas las rutas de la API están bajo `/api` y responden siempre JSON.
 | GET    | `/api/campaigns/:id`               | Obtiene una campaña                                             |
 | PUT    | `/api/campaigns/:id`               | Actualiza una campaña                                           |
 | DELETE | `/api/campaigns/:id`               | Elimina una campaña (borrado lógico)                            |
+| POST   | `/api/users`                       | Crea un usuario                                                 |
+| POST   | `/api/auth/login`                  | Verifica usuario (username o email) y contraseña                |
+
+### Usuarios y login
+
+- **Alta** (`POST /api/users`): `username`, `name`, `email`, `password` (8 caracteres
+  como mínimo) y `role` opcional. La contraseña se guarda hasheada con **bcryptjs** y
+  ninguna respuesta la incluye, ni su hash. `409` si el username o el email ya existen,
+  incluso de un usuario eliminado.
+- **Roles**: `superadmin`, `administrador`, `auditoria`, `organizacion` (por defecto, el de
+  menos permisos: `organizacion`).
+- **Login** (`POST /api/auth/login`), con body `{ "usuario": "...", "password": "..." }`:
+  `usuario` puede ser el username o el email. `200` con el usuario si coinciden; `401`
+  con el mismo mensaje si el usuario no existe o la contraseña es incorrecta, para no
+  revelar qué usuarios existen.
+- **Alcance**: el login **verifica credenciales, pero no crea sesión ni token**. La API no
+  recuerda al usuario entre pedidos, así que **el rol se guarda pero no restringe el
+  acceso** a ninguna ruta. Ver [Desarrollo futuro](#desarrollo-futuro).
 
 ### Identificadores (ObjectId) y relación 1:N
 
@@ -363,8 +400,8 @@ que ejecuta `node --test`. El corredor nativo descubre solo todos los archivos
 Resultado actual:
 
 ```text
-tests 74
-pass 74
+tests 90
+pass 90
 fail 0
 ```
 
@@ -373,7 +410,8 @@ fail 0
 | `validateId.test.js` | 10 | Ids ObjectId válidos e inválidos y la delegación del error con `next(err)` |
 | `validateOrganization.test.js` | 17 | Campos obligatorios, tipos, valores permitidos y normalización de organizaciones |
 | `validateCampaigns.test.js` | 26 | Campos obligatorios, tipos reales, `organizationId` y valores permitidos de campañas |
-| `reglasNegocio.test.js` | 21 | Reglas 404/409, schemas, actualizaciones parciales, filtros y borrado lógico contra MongoDB |
+| `validateUser.test.js` | 11 | Validación del alta de usuarios y del login |
+| `reglasNegocio.test.js` | 26 | Reglas 404/409, schemas, actualizaciones parciales, filtros, borrado lógico, usuarios y login contra MongoDB |
 
 ### Bases de desarrollo y de pruebas
 
@@ -407,23 +445,18 @@ un ObjectId.
   <em>Primera entrega: GET /api/organizations/1 con Postman (ids numéricos, persistencia JSON).</em>
 </p>
 
-## Pendiente para la segunda entrega
+## Desarrollo futuro
 
-Según los requisitos de la segunda entrega, falta:
+Fuera del alcance de esta entrega, por decisión del grupo:
 
-- **Usuarios** con contraseña.
-- **Login** que verifique las credenciales contra la base.
-- **Rol** en la estructura del usuario.
-
-Usuarios y login **siguen pendientes**. El profesor no exige encriptar contraseñas en
-esta etapa, pero eso no significa usar contraseñas reales en texto plano: si se
-desarrolla un login académico sin encriptación, se deben usar **únicamente credenciales
-ficticias de prueba**.
-- Documentación de la entrega (roles del equipo, uso de IA, capturas), video de
-  defensa y código comprimido sin `node_modules`.
-
-No forman parte de esta entrega: encriptación de contraseñas, sesiones, JWT,
-WebSockets ni inteligencia artificial.
+- **Sesiones o JWT.** Con ellas la API reconocería al usuario en cada pedido y el login
+  impediría el acceso a quien no se identificó.
+- **Roles que restrinjan el acceso**, que dependen de lo anterior: por ejemplo, que sólo
+  `superadmin` gestione usuarios.
+- **Gestión completa de usuarios** (listado, edición, baja y una página web), que sin
+  sesiones quedaría abierta a cualquiera.
+- **Requerimientos especificados en Ingeniería de Software** que todavía no están en el
+  backend, como el registro de evaluación de organizaciones con motivo de rechazo.
 
 ## Grupo
 

@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import { validateCampaign } from "../middlewares/validateBody.js";
 import Campaign from "../models/Campaign.js";
 import Organization from "../models/Organization.js";
+import User from "../models/User.js";
 
 /**
  * TESTS DE INTEGRACIÓN: reglas de negocio contra MongoDB real.
@@ -51,6 +52,7 @@ beforeEach(async () => {
   comprobarBaseDeTest();
   await Campaign.deleteMany({});
   await Organization.deleteMany({});
+  await User.deleteMany({});
 });
 
 after(async () => {
@@ -355,4 +357,72 @@ test("countDocuments, exists, distinct y aggregate no ven lo eliminado", async (
   const agregado = await Organization.aggregate([{ $group: { _id: null, total: { $sum: 1 } } }]);
   assert.equal(agregado[0].total, 1);
   assert.notEqual(await Organization.exists({ _id: vigente.id }), null);
+});
+
+// ---------------------------------------------------------------------------
+// Usuarios: alta con hash y login
+// ---------------------------------------------------------------------------
+
+function datosUsuario(extra = {}) {
+  return {
+    username: "mgarcia",
+    name: "María García",
+    email: "maria@sumarimpacto.org",
+    password: "clave-segura",
+    ...extra
+  };
+}
+
+test("User.crear guarda el hash, nunca la contraseña, y la respuesta no lo incluye", async () => {
+  const user = await User.crear(datosUsuario());
+
+  assert.notEqual(user.passwordHash, "clave-segura");
+  assert.match(user.passwordHash, /^\$2[aby]\$10\$/);
+  assert.equal(user.role, "organizacion", "sin rol, el de menos permisos");
+
+  const respuesta = comoRespuesta(user);
+  assert.equal(respuesta.passwordHash, undefined);
+  assert.equal(respuesta.password, undefined);
+});
+
+test("User.crear rechaza username o email repetidos (409), sin distinguir mayúsculas", async () => {
+  await User.crear(datosUsuario());
+
+  const porUsername = await capturarError(User.crear(datosUsuario({ username: "MGarcia", email: "otra@x.org" })));
+  assert.equal(porUsername.statusCode, 409);
+
+  const porEmail = await capturarError(User.crear(datosUsuario({ username: "otra", email: "MARIA@sumarimpacto.org" })));
+  assert.equal(porEmail.statusCode, 409);
+
+  assert.equal(await User.countDocuments(), 1);
+});
+
+test("User.verificarCredenciales entra con username o con email", async () => {
+  await User.crear(datosUsuario());
+
+  assert.equal((await User.verificarCredenciales("MGarcia", "clave-segura")).username, "mgarcia");
+  assert.equal((await User.verificarCredenciales("Maria@SumarImpacto.org", "clave-segura")).username, "mgarcia");
+});
+
+test("User.verificarCredenciales devuelve null con contraseña incorrecta, usuario inexistente o eliminado", async () => {
+  const user = await User.crear(datosUsuario());
+
+  assert.equal(await User.verificarCredenciales("mgarcia", "otra-clave"), null);
+  assert.equal(await User.verificarCredenciales("nadie", "clave-segura"), null);
+
+  user.deletedAt = new Date();
+  await user.save();
+  assert.equal(await User.verificarCredenciales("mgarcia", "clave-segura"), null);
+});
+
+test("User.crear rechaza (409) el username o email de un usuario eliminado: siguen reservados", async () => {
+  // La conexión de los tests usa autoIndex: false, así que el índice único no se
+  // crea solo: se crea acá para probar la regla como en la aplicación real.
+  await User.createIndexes();
+  const user = await User.crear(datosUsuario());
+  user.deletedAt = new Date();
+  await user.save();
+
+  const err = await capturarError(User.crear(datosUsuario()));
+  assert.equal(err.statusCode, 409);
 });

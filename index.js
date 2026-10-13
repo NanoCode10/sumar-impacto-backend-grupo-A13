@@ -7,6 +7,8 @@ import { conectarDB } from "./config/db.js";
 
 import organizationsRoutes from "./routes/organizationsRoutes.js";
 import campaignsRoutes from "./routes/campaignsRoutes.js";
+import usersRoutes from "./routes/usersRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import viewsRoutes from "./routes/viewsRoutes.js";
 
 import { notFound, errorHandler } from "./middlewares/errors.js";
@@ -34,6 +36,8 @@ app.use(express.static(path.join(__dirname, "public")));
 // API REST: responde siempre JSON
 app.use("/api/organizations", organizationsRoutes);
 app.use("/api/campaigns", campaignsRoutes);
+app.use("/api/users", usersRoutes);
+app.use("/api/auth", authRoutes);
 
 // Páginas HTML con Pug: inicio y fichas de detalle
 app.use("/", viewsRoutes);

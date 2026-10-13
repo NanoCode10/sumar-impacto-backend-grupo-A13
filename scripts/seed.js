@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import { conectarDB } from "../config/db.js";
 import Organization from "../models/Organization.js";
 import Campaign from "../models/Campaign.js";
+import User from "../models/User.js";
 
 /**
  * SCRIPT DE INICIALIZACIÓN DE DATOS (seed)
@@ -22,7 +23,12 @@ import Campaign from "../models/Campaign.js";
  *
  * Se puede ejecutar varias veces sin duplicar nada y sin borrar nada:
  *  - una organización se crea sólo si no existe otra con el mismo email;
- *  - una campaña se crea sólo si su organización no tiene ya una con el mismo título.
+ *  - una campaña se crea sólo si su organización no tiene ya una con el mismo título;
+ *  - un usuario se crea sólo si no existe otro con el mismo username o email.
+ *
+ * data/users.json trae usuarios FICTICIOS, uno por rol, con contraseñas de prueba
+ * conocidas (documentadas en el README). En el JSON van sin hashear porque son
+ * datos de prueba; User.crear las hashea al cargarlas y en la base queda sólo el hash.
  *
  * En los JSON las campañas apuntan a su organización con un id numérico
  * (organizationId: 1). En MongoDB los ids son ObjectId: por eso se arma una tabla
@@ -59,6 +65,23 @@ async function cargarOrganizaciones(organizaciones, idsNuevos, resumen) {
 
     // También para las que ya existían: sus campañas necesitan el ObjectId.
     idsNuevos.set(dato.id, organizacion._id);
+  }
+}
+
+async function cargarUsuarios(usuarios, resumen) {
+  for (const dato of usuarios) {
+    const existe =
+      (await User.exists({ username: dato.username.toLowerCase() })) ||
+      (await User.exists({ email: dato.email.toLowerCase() }));
+    if (existe) {
+      resumen.omitidas += 1;
+      console.log(`  = Usuario omitido (ya existe): ${dato.username}`);
+      continue;
+    }
+
+    await User.crear(dato);
+    resumen.creadas += 1;
+    console.log(`  + Usuario creado: ${dato.username} (${dato.role})`);
   }
 }
 
@@ -109,6 +132,7 @@ async function main() {
 
   const organizaciones = leerJSON("organizations.json");
   const campanias = leerJSON("campaigns.json");
+  const usuarios = leerJSON("users.json");
 
   // Al conectar, Mongoose crea las colecciones de los modelos (autoCreate). Se
   // desactiva para que, si la base no es la confirmada, no quede nada creado en ella.
@@ -128,6 +152,7 @@ async function main() {
   const idsNuevos = new Map();
   const resumenOrganizaciones = { creadas: 0, omitidas: 0 };
   const resumenCampanias = { creadas: 0, omitidas: 0 };
+  const resumenUsuarios = { creadas: 0, omitidas: 0 };
 
   console.log("Organizaciones:");
   await cargarOrganizaciones(organizaciones, idsNuevos, resumenOrganizaciones);
@@ -135,9 +160,13 @@ async function main() {
   console.log("Campañas:");
   await cargarCampanias(campanias, idsNuevos, resumenCampanias);
 
+  console.log("Usuarios:");
+  await cargarUsuarios(usuarios, resumenUsuarios);
+
   console.log("\nResumen:");
   console.log(`  Organizaciones -> creadas: ${resumenOrganizaciones.creadas}, omitidas: ${resumenOrganizaciones.omitidas}`);
   console.log(`  Campañas       -> creadas: ${resumenCampanias.creadas}, omitidas: ${resumenCampanias.omitidas}`);
+  console.log(`  Usuarios       -> creados: ${resumenUsuarios.creadas}, omitidos: ${resumenUsuarios.omitidas}`);
 }
 
 try {
