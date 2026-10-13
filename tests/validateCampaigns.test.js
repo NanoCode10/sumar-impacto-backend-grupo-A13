@@ -1,7 +1,7 @@
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test } from "node:test";
+import assert from "node:assert/strict";
 
-const { validateCampaign } = require("../middlewares/validateBody");
+import { validateCampaign } from "../middlewares/validateBody.js";
 
 function ejecutarValidador(body, mode = "create") {
   const req = { body };
@@ -37,12 +37,17 @@ function mostrarResultado(nombre, entrada, resultado) {
   console.log("¿Se llamó a next()?:", resultado.siguienteLlamado);
 }
 
+// organizationId es un ObjectId de MongoDB escrito como texto. Para validar el
+// formato no hace falta que la organización exista: eso lo decide el modelo.
+const ORG_ID = "64b7f0c2a1b2c3d4e5f60718";
+const MENSAJE_ORG_ID = "organizationId debe ser un ObjectId válido (24 caracteres hexadecimales)";
+
 function cuerpoValido() {
   return {
     title: "Campaña de alimentos",
     description: "Compra de alimentos para el comedor",
     targetAmount: 250000,
-    organizationId: 1,
+    organizationId: ORG_ID,
     status: "activa"
   };
 }
@@ -63,7 +68,7 @@ test("acepta una campaña válida y normaliza textos y estado", () => {
     title: " Campaña de alimentos ",
     description: " Compra de alimentos para el comedor ",
     targetAmount: 250000,
-    organizationId: 1,
+    organizationId: ORG_ID,
     status: "ACTIVA"
   };
   const resultado = ejecutarValidador(entrada);
@@ -74,7 +79,7 @@ test("acepta una campaña válida y normaliza textos y estado", () => {
   assert.equal(resultado.req.body.title, "Campaña de alimentos");
   assert.equal(resultado.req.body.description, "Compra de alimentos para el comedor");
   assert.equal(resultado.req.body.targetAmount, 250000);
-  assert.equal(resultado.req.body.organizationId, 1);
+  assert.equal(resultado.req.body.organizationId, ORG_ID);
   assert.equal(resultado.req.body.status, "activa");
 });
 
@@ -118,8 +123,9 @@ test("rechaza targetAmount alfanumérico no convertible", () => {
   probarError("targetAmount alfanumérico", { ...cuerpoValido(), targetAmount: "abc" });
 });
 
-test("rechaza organizationId alfanumérico no convertible", () => {
-  probarError("organizationId alfanumérico", { ...cuerpoValido(), organizationId: "abc" });
+test("rechaza organizationId que no es un ObjectId", () => {
+  const resultado = probarError("organizationId alfanumérico", { ...cuerpoValido(), organizationId: "abc" });
+  assert.equal(resultado.respuesta.body.error, MENSAJE_ORG_ID);
 });
 
 test("rechaza targetAmount numérico enviado como string", () => {
@@ -127,21 +133,22 @@ test("rechaza targetAmount numérico enviado como string", () => {
   assert.equal(resultado.respuesta.body.error, "targetAmount debe ser un número mayor a 0");
 });
 
-test("rechaza organizationId numérico enviado como string", () => {
-  const resultado = probarError("organizationId como string", { ...cuerpoValido(), organizationId: "1" });
-  assert.equal(resultado.respuesta.body.error, "organizationId debe ser un número entero positivo");
+// Un ObjectId llega como texto: un number (el formato de id anterior) se rechaza.
+test("rechaza organizationId numérico", () => {
+  const resultado = probarError("organizationId numérico", { ...cuerpoValido(), organizationId: 1 });
+  assert.equal(resultado.respuesta.body.error, MENSAJE_ORG_ID);
 });
 
-test("rechaza organizationId negativo", () => {
-  probarError("organizationId negativo", { ...cuerpoValido(), organizationId: -1 });
+test("rechaza organizationId de 23 caracteres", () => {
+  probarError("organizationId de 23 caracteres", { ...cuerpoValido(), organizationId: ORG_ID.slice(1) });
 });
 
-test("rechaza organizationId cero", () => {
-  probarError("organizationId cero", { ...cuerpoValido(), organizationId: 0 });
+test("rechaza organizationId con caracteres no hexadecimales", () => {
+  probarError("organizationId no hexadecimal", { ...cuerpoValido(), organizationId: "64b7f0c2a1b2c3d4e5f6071z" });
 });
 
-test("rechaza organizationId decimal", () => {
-  probarError("organizationId decimal", { ...cuerpoValido(), organizationId: 1.5 });
+test("rechaza organizationId de 12 caracteres", () => {
+  probarError("organizationId de 12 caracteres", { ...cuerpoValido(), organizationId: "abcdefghijkl" });
 });
 
 test("rechaza targetAmount cero", () => {
@@ -169,7 +176,7 @@ test("rechaza title omitido en modo create", () => {
   probarError("title omitido en create", {
     description: "Descripción válida",
     targetAmount: 100000,
-    organizationId: 1
+    organizationId: ORG_ID
   });
 });
 
@@ -177,7 +184,7 @@ test("rechaza description omitida en modo create", () => {
   probarError("description omitida en create", {
     title: "Campaña válida",
     targetAmount: 100000,
-    organizationId: 1
+    organizationId: ORG_ID
   });
 });
 
@@ -185,7 +192,7 @@ test("rechaza targetAmount omitido en modo create", () => {
   probarError("targetAmount omitido en create", {
     title: "Campaña válida",
     description: "Descripción válida",
-    organizationId: 1
+    organizationId: ORG_ID
   });
 });
 

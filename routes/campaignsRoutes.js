@@ -1,16 +1,16 @@
-const express = require("express");
+import express from "express";
 
-const validateId = require("../middlewares/validateId");
-const { validateCampaign } = require("../middlewares/validateBody");
-const { validateCampaignQuery } = require("../middlewares/validateQuery");
+import validateId from "../middlewares/validateId.js";
+import { validateCampaign } from "../middlewares/validateBody.js";
+import { validateCampaignQuery } from "../middlewares/validateQuery.js";
 
-const {
+import {
   getCampaigns,
   getCampaignById,
   createCampaign,
   updateCampaign,
   deleteCampaign
-} = require("../controllers/campaignsController");
+} from "../controllers/campaignsController.js";
 
 const router = express.Router();
 
@@ -21,4 +21,4 @@ router.get("/:id", validateId, getCampaignById);
 router.put("/:id", validateId, validateCampaign("update"), updateCampaign);
 router.delete("/:id", validateId, deleteCampaign);
 
-module.exports = router;
+export default router;

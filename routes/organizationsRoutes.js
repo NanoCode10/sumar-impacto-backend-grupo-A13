@@ -1,19 +1,19 @@
-const express = require("express");
+import express from "express";
 
 // import Middlewares
-const validateId = require("../middlewares/validateId");
-const { validateOrganization } = require("../middlewares/validateBody");
-const { validateOrganizationQuery } = require("../middlewares/validateQuery");
+import validateId from "../middlewares/validateId.js";
+import { validateOrganization } from "../middlewares/validateBody.js";
+import { validateOrganizationQuery } from "../middlewares/validateQuery.js";
 
 // import Controllers
-const {
+import {
   getOrganizations,
   getOrganizationCampaigns,
   getOrganizationById,
   createOrganization,
   updateOrganization,
   deleteOrganization
-} = require("../controllers/organizationsController");
+} from "../controllers/organizationsController.js";
 
 // Create a new router instance
 const router = express.Router();
@@ -27,4 +27,4 @@ router.put("/:id", validateId, validateOrganization("update"), updateOrganizatio
 router.delete("/:id", validateId, deleteOrganization);
 
 // Exporta el router para que pueda ser utilizado en otros archivos, como index.js
-module.exports = router;
+export default router;

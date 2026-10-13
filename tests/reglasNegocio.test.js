@@ -1,194 +1,286 @@
-const { test } = require("node:test");
-const assert = require("node:assert/strict");
+import { test, before, beforeEach, after } from "node:test";
+import assert from "node:assert/strict";
 
-const fs = require("node:fs");
-const path = require("node:path");
+import mongoose from "mongoose";
 
-const { validateCampaign } = require("../middlewares/validateBody");
-const Campaign = require("../models/Campaign");
-const Organization = require("../models/Organization");
+import { validateCampaign } from "../middlewares/validateBody.js";
+import Campaign from "../models/Campaign.js";
+import Organization from "../models/Organization.js";
 
-const campaignsPath = path.join(__dirname, "..", "data", "campaigns.json");
+/**
+ * TESTS DE INTEGRACIÓN: reglas de negocio contra MongoDB real.
+ *
+ * Usan una base SEPARADA (sumarimpacto_test) del mismo servidor local, nunca la
+ * de desarrollo (sumarimpacto): antes de cada test se vacían sus colecciones.
+ * La URI se puede cambiar con la variable de entorno MONGO_URI_TEST.
+ *
+ * Protección: se verifica el nombre de la base EFECTIVA de la conexión (no sólo
+ * el texto de la URI) y, si no termina en "_test", no se borra nada y los tests
+ * fallan. Si el servicio de MongoDB no está en ejecución, también fallan con un
+ * mensaje claro: no se omiten.
+ */
 
-function ejecutarValidador(body, mode = "create") {
-  const req = { body };
-  let respuesta;
-  let siguienteLlamado = false;
+const URI_TEST = process.env.MONGO_URI_TEST ?? "mongodb://127.0.0.1:27017/sumarimpacto_test";
 
-  const res = {
-    status(codigo) {
-      respuesta = { codigo };
-      return this;
-    },
-    json(data) {
-      respuesta.body = data;
-      return this;
-    }
-  };
-
-  const next = () => {
-    siguienteLlamado = true;
-  };
-
-  validateCampaign(mode)(req, res, next);
-
-  return { req, respuesta, siguienteLlamado };
+function comprobarBaseDeTest() {
+  const base = mongoose.connection.name;
+  if (!base || !base.endsWith("_test")) {
+    throw new Error(
+      `Los tests de integración sólo pueden usar una base terminada en "_test" (base conectada: "${base}"). No se borró nada.`
+    );
+  }
 }
 
-function mostrarResultado(nombre, entrada, resultado) {
-  console.log(`\n${nombre}`);
-  console.log("Body ingresado:", JSON.stringify(entrada));
-  console.log("Status retornado:", resultado.respuesta?.codigo ?? "sin respuesta");
-  console.log("JSON retornado:", JSON.stringify(resultado.respuesta?.body ?? null));
-  console.log("Body luego de validar:", JSON.stringify(resultado.req.body));
-  console.log("¿Se llamó a next()?:", resultado.siguienteLlamado);
+before(async () => {
+  try {
+    // autoCreate/autoIndex en false: al conectar, Mongoose no crea colecciones ni
+    // índices. Así, si la URI apunta a otra base, no queda nada creado en ella
+    // antes de que comprobarBaseDeTest() lo detecte.
+    await mongoose.connect(URI_TEST, { serverSelectionTimeoutMS: 5000, autoCreate: false, autoIndex: false });
+  } catch (err) {
+    throw new Error(
+      `No se pudo conectar a MongoDB para los tests de integración: ${err.message}. ` +
+        "¿Está instalado MongoDB y el servicio en ejecución?"
+    );
+  }
+  comprobarBaseDeTest();
+});
+
+beforeEach(async () => {
+  // Se vuelve a comprobar justo antes de borrar.
+  comprobarBaseDeTest();
+  await Campaign.deleteMany({});
+  await Organization.deleteMany({});
+});
+
+after(async () => {
+  // Sin desconectar, node --test quedaría esperando con la conexión abierta.
+  await mongoose.disconnect();
+});
+
+// ---------------------------------------------------------------------------
+// Ayudas
+// ---------------------------------------------------------------------------
+
+let contador = 0;
+
+function crearOrganizacion(status) {
+  contador += 1;
+  return Organization.create({
+    name: `Organización de prueba ${contador}`,
+    type: "ONG",
+    email: `org${contador}@test.org`,
+    status
+  });
 }
 
-function cuerpoValido() {
+function datosCampania(organizationId, extra = {}) {
   return {
     title: "Campaña de alimentos",
     description: "Compra de alimentos para el comedor",
     targetAmount: 250000,
-    organizationId: 1,
-    status: "activa"
+    organizationId,
+    ...extra
   };
 }
 
-function probarError(nombre, entrada) {
-  const resultado = ejecutarValidador(entrada);
-  mostrarResultado(nombre, entrada, resultado);
+// Lo mismo que hace res.json(): pasa el documento por toJSON y JSON.stringify.
+const comoRespuesta = (documento) => JSON.parse(JSON.stringify(documento));
 
-  assert.equal(resultado.siguienteLlamado, false);
-  assert.equal(resultado.respuesta.codigo, 400);
-  return resultado;
+// Un ObjectId con formato válido que no corresponde a ningún documento.
+const idInexistente = () => new mongoose.Types.ObjectId().toString();
+
+async function capturarError(promesa) {
+  try {
+    await promesa;
+  } catch (err) {
+    return err;
+  }
+  assert.fail("Se esperaba un error y la operación terminó bien");
 }
 
-// validateBody sólo controla el formato (number entero positivo): que la
-// organización exista y esté aprobada lo decide el modelo, no el middleware.
+// ---------------------------------------------------------------------------
+// validateBody: sólo el formato (sin base de datos)
+// ---------------------------------------------------------------------------
+
+// validateBody sólo controla el formato de organizationId (un ObjectId en texto):
+// que la organización exista y esté aprobada lo decide el modelo.
 test("validateCampaign acepta un organizationId con formato válido", () => {
-  const entrada = {
-    title: " Campaña de alimentos ",
-    description: " Compra de alimentos para el comedor ",
-    targetAmount: 250000,
-    organizationId: 4,
-    status: "ACTIVA"
-  };
-  const resultado = ejecutarValidador(entrada);
-  mostrarResultado("Campaña válida", entrada, resultado);
+  const req = { body: datosCampania("64b7f0c2a1b2c3d4e5f60718", { title: " Campaña de alimentos " }) };
+  let siguienteLlamado = false;
+  validateCampaign("create")(req, {}, () => {
+    siguienteLlamado = true;
+  });
 
-  assert.equal(resultado.siguienteLlamado, true);
-  assert.equal(resultado.respuesta, undefined);
-  assert.equal(resultado.req.body.title, "Campaña de alimentos");
-  assert.equal(resultado.req.body.description, "Compra de alimentos para el comedor");
-  assert.equal(resultado.req.body.targetAmount, 250000);
-  assert.equal(resultado.req.body.organizationId, 4);
-  assert.equal(resultado.req.body.status, "activa");
+  assert.equal(siguienteLlamado, true);
+  assert.equal(req.body.organizationId, "64b7f0c2a1b2c3d4e5f60718");
+  assert.equal(req.body.title, "Campaña de alimentos");
 });
 
+// ---------------------------------------------------------------------------
+// Campaign.crear
+// ---------------------------------------------------------------------------
 
+test("Campaign.crear rechaza una organización inexistente (404)", async () => {
+  const err = await capturarError(Campaign.crear(datosCampania(idInexistente())));
 
+  assert.equal(err.statusCode, 404);
+  assert.equal(err.message, "La organización indicada no existe");
+  assert.equal(await Campaign.countDocuments(), 0);
+});
 
+test("Campaign.crear rechaza una organización no aprobada (409)", async () => {
+  const pendiente = await crearOrganizacion("pendiente");
 
-//Caso de prueba adicional para verificar que se rechaza crear una campaña para una organización con estado pendiente en el módulo campaings
-test("Campaign.create rechaza una organización no aprobada (id 4)", () => {
-  const entrada = {
-    title: "Campaña de alimentos",
-    description: "Compra de alimentos para el comedor",
-    targetAmount: 250000,
-    organizationId: 4,
-    status: "activa"
-  };
+  const err = await capturarError(Campaign.crear(datosCampania(pendiente.id)));
 
-  // En data/organizations.json no hay organizaciones pendientes: se reemplaza
-  // temporalmente Organization.findById (Campaign.create la consulta vía require
-  // diferido, que devuelve esta misma clase) y se restaura siempre en el finally.
-  const findByIdOriginal = Organization.findById;
-  Organization.findById = (id) =>
-    id === 4 ? new Organization(4, "Organización pendiente", "ONG", "pendiente@test.org", "pendiente") : null;
+  assert.equal(err.statusCode, 409);
+  assert.equal(err.message, `La organización ${pendiente.id} está en estado pendiente y no puede recibir campañas`);
+  assert.equal(await Campaign.countDocuments(), 0);
+});
 
-  let errorCapturado;
-  try {
-    assert.throws(
-      () => Campaign.create(entrada),
-      (error) => {
-        errorCapturado = error;
-        return error.statusCode === 409;
-      }
-    );
-  } finally {
-    Organization.findById = findByIdOriginal;
-  }
+test("Campaign.crear crea una campaña para una organización aprobada", async () => {
+  const aprobada = await crearOrganizacion("aprobada");
 
-  console.log("\nCampaign.create - organización no aprobada");
-  console.log("Body ingresado:", JSON.stringify(entrada));
-  console.log("Status del error:", errorCapturado.statusCode);
-  console.log("Mensaje retornado:", errorCapturado.message);
+  const campania = comoRespuesta(await Campaign.crear(datosCampania(aprobada.id)));
 
-  assert.equal(errorCapturado.statusCode, 409);
-  assert.equal(
-    errorCapturado.message,
-    "La organización 4 está en estado pendiente y no puede recibir campañas"
+  // La API devuelve id y organizationId como texto, sin _id ni __v.
+  assert.match(campania.id, /^[0-9a-f]{24}$/);
+  assert.equal(campania.organizationId, aprobada.id);
+  assert.equal(campania.title, "Campaña de alimentos");
+  assert.equal(campania.targetAmount, 250000);
+  assert.equal(campania.status, "borrador", "sin status se aplica el valor por defecto");
+  assert.equal(campania._id, undefined);
+  assert.equal(campania.__v, undefined);
+  assert.ok(campania.createdAt && campania.updatedAt, "timestamps: true agrega las fechas");
+});
+
+test("el schema de Campaign rechaza targetAmount 0 (segunda capa de validación)", async () => {
+  const aprobada = await crearOrganizacion("aprobada");
+
+  const err = await capturarError(Campaign.crear(datosCampania(aprobada.id, { targetAmount: 0 })));
+
+  assert.equal(err.name, "ValidationError");
+  assert.equal(err.errors.targetAmount.message, "targetAmount debe ser un número mayor a 0");
+});
+
+// ---------------------------------------------------------------------------
+// Campaign.actualizar
+// ---------------------------------------------------------------------------
+
+test("Campaign.actualizar devuelve null si la campaña no existe", async () => {
+  assert.equal(await Campaign.actualizar(idInexistente(), { title: "Título nuevo" }), null);
+});
+
+test("Campaign.actualizar rechaza mover la campaña a una organización no aprobada (409)", async () => {
+  const aprobada = await crearOrganizacion("aprobada");
+  const pendiente = await crearOrganizacion("pendiente");
+  const campania = await Campaign.crear(datosCampania(aprobada.id));
+
+  const err = await capturarError(Campaign.actualizar(campania.id, { organizationId: pendiente.id }));
+
+  assert.equal(err.statusCode, 409);
+  const guardada = await Campaign.findById(campania.id);
+  assert.equal(guardada.organizationId.toString(), aprobada.id, "la campaña no se movió");
+});
+
+test("Campaign.actualizar rechaza mover la campaña a una organización inexistente (404)", async () => {
+  const aprobada = await crearOrganizacion("aprobada");
+  const campania = await Campaign.crear(datosCampania(aprobada.id));
+
+  const err = await capturarError(Campaign.actualizar(campania.id, { organizationId: idInexistente() }));
+
+  assert.equal(err.statusCode, 404);
+});
+
+test("Campaign.actualizar cambia sólo los campos enviados", async () => {
+  const aprobada = await crearOrganizacion("aprobada");
+  const otra = await crearOrganizacion("aprobada");
+  const campania = await Campaign.crear(datosCampania(aprobada.id, { status: "activa" }));
+
+  // Así llegan desde el controller: los campos no enviados vienen como undefined.
+  const actualizada = comoRespuesta(
+    await Campaign.actualizar(campania.id, {
+      title: "Título actualizado",
+      description: undefined,
+      targetAmount: undefined,
+      status: undefined,
+      organizationId: otra.id
+    })
   );
+
+  assert.equal(actualizada.title, "Título actualizado");
+  assert.equal(actualizada.organizationId, otra.id);
+  assert.equal(actualizada.description, "Compra de alimentos para el comedor");
+  assert.equal(actualizada.targetAmount, 250000);
+  assert.equal(actualizada.status, "activa");
 });
 
-//Caso de prueba adicional para verificar que se rechaza una organización inexistente al crear una campaña en el módulo campaings
-//los casos positivos ya están cubiertos en los tests de validateCampaigns.test.js y validateOrganization.test.js
+// ---------------------------------------------------------------------------
+// Organization
+// ---------------------------------------------------------------------------
 
-test("Campaign.create rechaza una organización inexistente (id 999)", () => {
-  const entrada = {
-    title: "Campaña de alimentos",
-    description: "Compra de alimentos para el comedor",
-    targetAmount: 250000,
-    organizationId: 999,
-    status: "activa"
-  };
+test("Organization.create aplica el estado por defecto y el schema valida type", async () => {
+  const org = await Organization.create({ name: "Fundación Verde", type: "fundación", email: "a@b.org", status: undefined });
+  assert.equal(org.status, "pendiente");
 
-  let errorCapturado;
-  assert.throws(
-    () => Campaign.create(entrada),
-    (error) => {
-      errorCapturado = error;
-      return error.statusCode === 404;
-    }
-  );
-
-  console.log("\nCampaign.create - organización inexistente");
-  console.log("Body ingresado:", JSON.stringify(entrada));
-  console.log("Status del error:", errorCapturado.statusCode);
-  console.log("Mensaje retornado:", errorCapturado.message);
-
-  assert.equal(errorCapturado.statusCode, 404);
-  assert.equal(errorCapturado.message, "La organización indicada no existe");
+  const err = await capturarError(Organization.create({ name: "Empresa SA", type: "empresa", email: "e@b.org" }));
+  assert.equal(err.name, "ValidationError");
 });
 
-test("Campaign.create crea una campaña para una organización aprobada", () => {
-  const entrada = {
-    title: "Campaña de alimentos",
-    description: "Compra de alimentos para el comedor",
-    targetAmount: 250000,
-    organizationId: 1,
-    status: "activa"
-  };
-  let campañaCreada;
-  // Campaign.create escribe en data/campaigns.json y Campaign.delete lo reescribe
-  // sin el salto de línea final: se guarda el contenido exacto y se restaura en el
-  // finally para no dejar cambios en el archivo.
-  const contenidoOriginal = fs.readFileSync(campaignsPath);
+test("Organization.eliminar rechaza una organización con campañas (409)", async () => {
+  const aprobada = await crearOrganizacion("aprobada");
+  await Campaign.crear(datosCampania(aprobada.id));
 
-  try {
-    campañaCreada = Campaign.create(entrada);
+  const err = await capturarError(Organization.eliminar(aprobada.id));
 
-    console.log("\nCampaign.create - organización aprobada");
-    console.log("Body ingresado:", JSON.stringify(entrada));
-    console.log("Campaña retornada:", JSON.stringify(campañaCreada));
+  assert.equal(err.statusCode, 409);
+  assert.equal(err.message, `La organización ${aprobada.id} tiene 1 campaña(s) y no puede eliminarse`);
+  assert.ok(await Organization.findById(aprobada.id), "la organización sigue existiendo");
+});
 
-    assert.equal(typeof campañaCreada.id, "number");
-    assert.equal(campañaCreada.organizationId, 1);
-    assert.equal(campañaCreada.title, entrada.title);
-    assert.equal(campañaCreada.description, entrada.description);
-    assert.equal(campañaCreada.targetAmount, 250000);
-    assert.equal(campañaCreada.status, "activa");
-  } finally {
-    fs.writeFileSync(campaignsPath, contenidoOriginal);
-  }
+test("Organization.eliminar elimina una organización sin campañas", async () => {
+  const org = await crearOrganizacion("pendiente");
+
+  const eliminada = await Organization.eliminar(org.id);
+
+  assert.equal(eliminada.id, org.id);
+  assert.equal(await Organization.findById(org.id), null);
+});
+
+test("Organization.eliminar devuelve null si la organización no existe", async () => {
+  assert.equal(await Organization.eliminar(idInexistente()), null);
+});
+
+test("Organization.actualizar cambia sólo los campos enviados y valida el schema", async () => {
+  const org = await crearOrganizacion("pendiente");
+
+  const actualizada = await Organization.actualizar(org.id, { status: "aprobada", name: undefined });
+  assert.equal(actualizada.status, "aprobada");
+  assert.equal(actualizada.name, org.name);
+
+  const err = await capturarError(Organization.actualizar(org.id, { status: "inexistente" }));
+  assert.equal(err.name, "ValidationError");
+  assert.equal(await Organization.actualizar(idInexistente(), { status: "aprobada" }), null);
+});
+
+// ---------------------------------------------------------------------------
+// Filtros (buscarTodas)
+// ---------------------------------------------------------------------------
+
+test("buscarTodas filtra organizaciones y campañas", async () => {
+  const aprobada = await crearOrganizacion("aprobada");
+  const otraAprobada = await crearOrganizacion("aprobada");
+  await crearOrganizacion("pendiente");
+  await Campaign.crear(datosCampania(aprobada.id, { status: "activa" }));
+  await Campaign.crear(datosCampania(aprobada.id, { title: "Otra campaña", status: "cerrada" }));
+  await Campaign.crear(datosCampania(otraAprobada.id, { status: "activa" }));
+
+  assert.equal((await Organization.buscarTodas()).length, 3);
+  assert.equal((await Organization.buscarTodas({ status: "aprobada" })).length, 2);
+  assert.equal((await Organization.buscarTodas({ type: "comedor" })).length, 0);
+
+  assert.equal((await Campaign.buscarTodas()).length, 3);
+  assert.equal((await Campaign.buscarTodas({ organizationId: aprobada.id })).length, 2);
+  assert.equal((await Campaign.buscarTodas({ organizationId: aprobada.id, status: "activa" })).length, 1);
 });

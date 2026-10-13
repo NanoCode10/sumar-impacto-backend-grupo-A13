@@ -1,6 +1,7 @@
-const norm = require("../utils/norm");
-const Organization = require("../models/Organization");
-const Campaign = require("../models/Campaign");
+import norm from "../utils/norm.js";
+import esObjectId from "../utils/objectId.js";
+import Organization from "../models/Organization.js";
+import Campaign from "../models/Campaign.js";
 
 /**
  * VALIDACIÓN DE LOS PARÁMETROS DE CONSULTA (?type=ONG&status=aprobada)
@@ -49,11 +50,10 @@ function validateCampaignQuery(req, res, next) {
   const { organizationId, status } = req.query;
 
   if (organizationId !== undefined) {
-    const id = Number(organizationId);
-    if (!Number.isInteger(id) || id <= 0) {
-      return invalid(res, "organizationId debe ser un número entero positivo");
+    if (!esObjectId(organizationId)) {
+      return invalid(res, "organizationId debe ser un ObjectId válido (24 caracteres hexadecimales)");
     }
-    filtros.organizationId = id;
+    filtros.organizationId = organizationId;
   }
 
   if (status !== undefined) {
@@ -68,4 +68,4 @@ function validateCampaignQuery(req, res, next) {
   next();
 }
 
-module.exports = { validateOrganizationQuery, validateCampaignQuery };
+export { validateOrganizationQuery, validateCampaignQuery };

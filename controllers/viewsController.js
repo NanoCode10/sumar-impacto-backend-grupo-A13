@@ -1,5 +1,5 @@
-const Organization = require("../models/Organization");
-const Campaign = require("../models/Campaign");
+import Organization from "../models/Organization.js";
+import Campaign from "../models/Campaign.js";
 
 /**
  * RESPONSABILIDAD DE ESTE CONTROLLER
@@ -14,10 +14,14 @@ const Campaign = require("../models/Campaign");
 /**
  * GET /  -> página de inicio con el listado de organizaciones y campañas.
  */
-function renderHome(req, res) {
-  const organizations = Organization.findAll();
-  const campaigns = Campaign.findAll();
-  res.render("home", { title: "SumarImpacto", organizations, campaigns });
+async function renderHome(req, res, next) {
+  try {
+    const organizations = await Organization.buscarTodas();
+    const campaigns = await Campaign.buscarTodas();
+    res.render("home", { title: "SumarImpacto", organizations, campaigns });
+  } catch (err) {
+    next(err);
+  }
 }
 
-module.exports = { renderHome };
+export { renderHome };

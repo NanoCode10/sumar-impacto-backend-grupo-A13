@@ -1,9 +1,9 @@
-const express = require("express");
+import express from "express";
 
-const validateId = require("../middlewares/validateId");
-const { renderHome } = require("../controllers/viewsController");
-const { renderOrganization } = require("../controllers/organizationsController");
-const { renderCampaign } = require("../controllers/campaignsController");
+import validateId from "../middlewares/validateId.js";
+import { renderHome } from "../controllers/viewsController.js";
+import { renderOrganization, renderOrganizations } from "../controllers/organizationsController.js";
+import { renderCampaign, renderCampaigns } from "../controllers/campaignsController.js";
 
 /**
  * Páginas HTML generadas con Pug. Son las únicas rutas que usan res.render;
@@ -14,7 +14,11 @@ const router = express.Router();
 
 router.get("/", renderHome);
 
+// Página de gestión: los datos los pide el navegador con fetch() a /api/organizations.
+router.get("/organizations", renderOrganizations);
 router.get("/organizations/:id", validateId, renderOrganization);
+// Página de gestión: los datos los pide el navegador con fetch() a /api/campaigns.
+router.get("/campaigns", renderCampaigns);
 router.get("/campaigns/:id", validateId, renderCampaign);
 
-module.exports = router;
+export default router;

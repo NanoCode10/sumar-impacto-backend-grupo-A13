@@ -1,15 +1,15 @@
+import esObjectId from "../utils/objectId.js";
+
 function validateId(req, res, next) {
 
   // Extrae el id de los parámetros de la solicitud
   const { id } = req.params;
 
-  // console.log("validateId recibió:", id); para pruebas de funcionamiento por consola
-
-  // Verifica si el id es un número entero positivo utilizando una expresión regular 
+  // Verifica que el id sea un ObjectId de MongoDB (24 caracteres hexadecimales).
   // Si no lo es, delega el error al errorHandler global (middlewares/errors.js):
   // se usa en la API y en las vistas, y es él quien decide si responder JSON o HTML.
-  if (!/^[1-9]\d*$/.test(id)) {
-    const err = new Error("El id debe ser un número entero positivo");
+  if (!esObjectId(id)) {
+    const err = new Error("El id debe ser un ObjectId válido (24 caracteres hexadecimales)");
     err.statusCode = 400;
     return next(err);
   }
@@ -17,4 +17,4 @@ function validateId(req, res, next) {
   next();
 }
 
-module.exports = validateId;
+export default validateId;
