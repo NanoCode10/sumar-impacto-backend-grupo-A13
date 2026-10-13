@@ -50,6 +50,7 @@ const organizationSchema = new mongoose.Schema(
       type: String,
       required: [true, "email es obligatorio"],
       trim: true,
+      lowercase: true,
       match: [EMAIL, "email no tiene un formato válido"]
     },
     status: {
