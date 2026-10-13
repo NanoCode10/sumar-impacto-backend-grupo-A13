@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 // dos modelos sólo se usan entre sí DENTRO de los métodos, nunca al cargar el
 // módulo. No usar Organization en código de nivel superior.
 import Organization from "./Organization.js";
+import softDelete from "../utils/softDelete.js";
 
 /**
  * MODELO Campaign (Mongoose)
@@ -12,8 +13,8 @@ import Organization from "./Organization.js";
  *
  * MÉTODOS
  *  - Propios (en español), con las reglas de negocio:
- *      buscarTodas(filtros), crear(datos), actualizar(id, datos).
- *  - De Mongoose, usados tal cual donde no hay reglas: findById, findByIdAndDelete.
+ *      buscarTodas(filtros), crear(datos), actualizar(id, datos), eliminar(id).
+ *  - De Mongoose, usados tal cual donde no hay reglas: findById.
  * Regla: toda campaña pertenece a una organización existente (si no, 404) y
  * aprobada (si no, 409), al crearla y también al moverla a otra organización.
  */
@@ -67,6 +68,9 @@ const campaignSchema = new mongoose.Schema(
     }
   }
 );
+
+// Borrado lógico: campo deletedAt y filtro automático en todas las consultas.
+campaignSchema.plugin(softDelete);
 
 // Deja sólo los campos que vinieron: en un PUT los demás no se tocan.
 const soloDefinidos = (datos) =>
@@ -124,6 +128,21 @@ campaignSchema.statics.actualizar = async function (id, datos) {
 
   // returnDocument: "after" devuelve el documento ya actualizado (reemplaza a new: true).
   return this.findByIdAndUpdate(id, soloDefinidos(datos), { returnDocument: "after", runValidators: true });
+};
+
+/**
+ * Elimina una campaña (borrado lógico). Devuelve la campaña eliminada, o null si
+ * no existe o ya estaba eliminada.
+ */
+campaignSchema.statics.eliminar = async function (id) {
+  const campaign = await this.findById(id);
+  if (!campaign) {
+    return null;
+  }
+
+  campaign.deletedAt = new Date();
+  await campaign.save();
+  return campaign;
 };
 
 const Campaign = mongoose.model("Campaign", campaignSchema);

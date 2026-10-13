@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 // dos modelos sólo se usan entre sí DENTRO de los métodos, nunca al cargar el
 // módulo. No usar Campaign en código de nivel superior.
 import Campaign from "./Campaign.js";
+import softDelete from "../utils/softDelete.js";
 
 /**
  * MODELO Organization (Mongoose)
@@ -74,6 +75,9 @@ const organizationSchema = new mongoose.Schema(
   }
 );
 
+// Borrado lógico: campo deletedAt y filtro automático en todas las consultas.
+organizationSchema.plugin(softDelete);
+
 // Deja sólo los campos que vinieron: en un PUT los demás no se tocan.
 const soloDefinidos = (datos) =>
   Object.fromEntries(Object.entries(datos).filter(([, valor]) => valor !== undefined));
@@ -100,9 +104,11 @@ organizationSchema.statics.actualizar = function (id, datos) {
 };
 
 /**
- * Elimina una organización. Devuelve la organización eliminada, o null si no existe.
- * Regla de negocio: una organización con campañas no se elimina (409), porque
- * esas campañas quedarían apuntando a una organización que ya no existe.
+ * Elimina una organización (borrado lógico). Devuelve la organización eliminada,
+ * o null si no existe o ya estaba eliminada.
+ * Regla de negocio: una organización con campañas vigentes no se elimina (409),
+ * porque esas campañas quedarían apuntando a una organización que ya no existe.
+ * Las campañas eliminadas no cuentan: el middleware de Campaign las excluye.
  */
 organizationSchema.statics.eliminar = async function (id) {
   const organization = await this.findById(id);
@@ -117,7 +123,8 @@ organizationSchema.statics.eliminar = async function (id) {
     throw err;
   }
 
-  await organization.deleteOne();
+  organization.deletedAt = new Date();
+  await organization.save();
   return organization;
 };
 

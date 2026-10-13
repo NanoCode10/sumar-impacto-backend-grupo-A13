@@ -121,7 +121,7 @@ async function updateCampaign(req, res, next) {
  */
 async function deleteCampaign(req, res, next) {
   try {
-    const deletedCampaign = await Campaign.findByIdAndDelete(req.params.id);
+    const deletedCampaign = await Campaign.eliminar(req.params.id);
 
     if (!deletedCampaign) {
       return res.status(404).json({ error: "Campaña no encontrada" });

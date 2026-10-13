@@ -220,12 +220,12 @@ Todas las rutas de la API están bajo `/api` y responden siempre JSON.
 | GET    | `/api/organizations/:id`           | Obtiene una organización                                        |
 | GET    | `/api/organizations/:id/campaigns` | Lista las campañas de una organización                          |
 | PUT    | `/api/organizations/:id`           | Actualiza una organización                                      |
-| DELETE | `/api/organizations/:id`           | Elimina una organización                                        |
+| DELETE | `/api/organizations/:id`           | Elimina una organización (borrado lógico)                       |
 | GET    | `/api/campaigns`                   | Lista campañas (filtros opcionales `organizationId` y `status`) |
 | POST   | `/api/campaigns`                   | Crea una campaña                                                |
 | GET    | `/api/campaigns/:id`               | Obtiene una campaña                                             |
 | PUT    | `/api/campaigns/:id`               | Actualiza una campaña                                           |
-| DELETE | `/api/campaigns/:id`               | Elimina una campaña                                             |
+| DELETE | `/api/campaigns/:id`               | Elimina una campaña (borrado lógico)                            |
 
 ### Identificadores (ObjectId) y relación 1:N
 
@@ -247,10 +247,24 @@ Ejemplo de respuesta de `GET /api/campaigns/:id` (la campaña de ejemplo cargada
   "description": "Compra de heladeras y utensilios",
   "targetAmount": 1500000,
   "status": "activa",
+  "deletedAt": null,
   "createdAt": "2026-10-12T22:48:13.963Z",
   "updatedAt": "2026-10-12T22:48:13.963Z"
 }
 ```
+
+### Borrado lógico
+
+El `DELETE` no borra el documento de la base: le pone la fecha en el campo `deletedAt`
+(que vale `null` mientras está vigente). Para la aplicación, lo eliminado deja de existir:
+
+- no aparece en los listados, la página de inicio ni las búsquedas;
+- `GET`, `PUT` o un segundo `DELETE` sobre algo eliminado responden `404`;
+- una campaña eliminada no impide eliminar su organización.
+
+El `status` no cambia al eliminar: es el estado de negocio y queda como estaba, para
+conservar la historia. El filtro se aplica en un solo lugar, el plugin
+`utils/softDelete.js`, que usan los dos modelos.
 
 ### Ejemplos de consultas
 
@@ -303,11 +317,11 @@ Campos obligatorios al crear:
 | `400`  | Id, body o filtro inválidos; JSON mal formado |
 | `404`  | La ruta, la organización o la campaña no existen; la campaña referencia una organización inexistente |
 | `409`  | Se intenta crear una campaña, o moverla a otra organización, y la organización no está `aprobada` |
-| `409`  | Se intenta eliminar una organización que todavía tiene campañas |
+| `409`  | Se intenta eliminar una organización que todavía tiene campañas vigentes |
 | `500`  | Error inesperado (mensaje genérico, sin detalles internos) |
 
 Las reglas de negocio están en los Models, en métodos propios:
-`Campaign.crear`, `Campaign.actualizar` y `Organization.eliminar`.
+`Campaign.crear`, `Campaign.actualizar`, `Campaign.eliminar` y `Organization.eliminar`.
 
 `middlewares/errors.js` centraliza las respuestas: en la API responde JSON
 (`{ "error": "..." }`) y en las vistas muestra la página `error.pug`.
@@ -349,8 +363,8 @@ que ejecuta `node --test`. El corredor nativo descubre solo todos los archivos
 Resultado actual:
 
 ```text
-tests 68
-pass 68
+tests 74
+pass 74
 fail 0
 ```
 
@@ -359,7 +373,7 @@ fail 0
 | `validateId.test.js` | 10 | Ids ObjectId válidos e inválidos y la delegación del error con `next(err)` |
 | `validateOrganization.test.js` | 17 | Campos obligatorios, tipos, valores permitidos y normalización de organizaciones |
 | `validateCampaigns.test.js` | 26 | Campos obligatorios, tipos reales, `organizationId` y valores permitidos de campañas |
-| `reglasNegocio.test.js` | 15 | Reglas 404/409, schemas, actualizaciones parciales y filtros contra MongoDB |
+| `reglasNegocio.test.js` | 21 | Reglas 404/409, schemas, actualizaciones parciales, filtros y borrado lógico contra MongoDB |
 
 ### Bases de desarrollo y de pruebas
 

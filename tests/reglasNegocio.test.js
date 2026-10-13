@@ -284,3 +284,75 @@ test("buscarTodas filtra organizaciones y campañas", async () => {
   assert.equal((await Campaign.buscarTodas({ organizationId: aprobada.id })).length, 2);
   assert.equal((await Campaign.buscarTodas({ organizationId: aprobada.id, status: "activa" })).length, 1);
 });
+
+// ---------------------------------------------------------------------------
+// Borrado lógico (utils/softDelete.js)
+// ---------------------------------------------------------------------------
+
+// Lee la colección con el driver de MongoDB, sin pasar por Mongoose: así se ve
+// el documento aunque esté eliminado, porque el filtro del plugin no se aplica.
+const leerSinFiltro = (Modelo, id) => Modelo.collection.findOne({ _id: new mongoose.Types.ObjectId(id) });
+
+test("Organization.eliminar es lógico: deja de existir para la aplicación pero sigue en la base", async () => {
+  const org = await crearOrganizacion("aprobada");
+
+  await Organization.eliminar(org.id);
+
+  assert.equal(await Organization.findById(org.id), null);
+  assert.equal((await Organization.buscarTodas()).length, 0);
+
+  const guardada = await leerSinFiltro(Organization, org.id);
+  assert.ok(guardada.deletedAt instanceof Date);
+  assert.equal(guardada.status, "aprobada", "el estado de negocio no se toca al eliminar");
+});
+
+test("eliminar dos veces: la segunda devuelve null (404)", async () => {
+  const org = await crearOrganizacion("pendiente");
+
+  assert.notEqual(await Organization.eliminar(org.id), null);
+  assert.equal(await Organization.eliminar(org.id), null);
+});
+
+test("Campaign.eliminar es lógico y una campaña eliminada no bloquea eliminar su organización", async () => {
+  const org = await crearOrganizacion("aprobada");
+  const campania = await Campaign.crear(datosCampania(org.id));
+
+  await Campaign.eliminar(campania.id);
+
+  assert.equal(await Campaign.findById(campania.id), null);
+  assert.ok((await leerSinFiltro(Campaign, campania.id)).deletedAt instanceof Date);
+
+  const eliminada = await Organization.eliminar(org.id);
+  assert.equal(eliminada.id, org.id);
+});
+
+test("Campaign.crear rechaza una organización eliminada (404)", async () => {
+  const org = await crearOrganizacion("aprobada");
+  await Organization.eliminar(org.id);
+
+  const err = await capturarError(Campaign.crear(datosCampania(org.id)));
+
+  assert.equal(err.statusCode, 404);
+});
+
+test("Campaign.actualizar devuelve null si la campaña está eliminada (404)", async () => {
+  const org = await crearOrganizacion("aprobada");
+  const campania = await Campaign.crear(datosCampania(org.id));
+  await Campaign.eliminar(campania.id);
+
+  assert.equal(await Campaign.actualizar(campania.id, { title: "Título nuevo" }), null);
+});
+
+test("countDocuments, exists, distinct y aggregate no ven lo eliminado", async () => {
+  const vigente = await crearOrganizacion("aprobada");
+  const eliminada = await crearOrganizacion("pendiente");
+  await Organization.eliminar(eliminada.id);
+
+  assert.equal(await Organization.countDocuments(), 1);
+  assert.equal(await Organization.exists({ _id: eliminada.id }), null);
+  assert.deepEqual(await Organization.distinct("status"), ["aprobada"]);
+
+  const agregado = await Organization.aggregate([{ $group: { _id: null, total: { $sum: 1 } } }]);
+  assert.equal(agregado[0].total, 1);
+  assert.notEqual(await Organization.exists({ _id: vigente.id }), null);
+});
