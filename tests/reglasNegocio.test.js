@@ -426,3 +426,62 @@ test("User.crear rechaza (409) el username o email de un usuario eliminado: sigu
   const err = await capturarError(User.crear(datosUsuario()));
   assert.equal(err.statusCode, 409);
 });
+
+// ---------------------------------------------------------------------------
+// Usuarios: edición y baja, con las reglas que evitan quedarse sin superadmin
+// ---------------------------------------------------------------------------
+
+const crearSuperadmin = (username) =>
+  User.crear(datosUsuario({ username, email: `${username}@sumarimpacto.org`, role: "superadmin" }));
+
+test("User.actualizar cambia rol y contraseña; el username no se toca", async () => {
+  const user = await User.crear(datosUsuario());
+
+  const actualizado = await User.actualizar(user.id, { role: "administrador", password: "clave-nueva-1" }, idInexistente());
+
+  assert.equal(actualizado.role, "administrador");
+  assert.equal(actualizado.username, "mgarcia");
+  assert.equal(await User.verificarCredenciales("mgarcia", "clave-segura"), null);
+  assert.notEqual(await User.verificarCredenciales("mgarcia", "clave-nueva-1"), null);
+});
+
+test("User.actualizar rechaza un email que ya usa otro usuario (409)", async () => {
+  await User.crear(datosUsuario());
+  const otro = await User.crear(datosUsuario({ username: "otro", email: "otro@sumarimpacto.org" }));
+
+  const err = await capturarError(User.actualizar(otro.id, { email: "MARIA@sumarimpacto.org" }, idInexistente()));
+  assert.equal(err.statusCode, 409);
+});
+
+test("un superadmin no puede quitarse el rol ni eliminarse a sí mismo (409)", async () => {
+  const a = await crearSuperadmin("admin-a");
+  await crearSuperadmin("admin-b");
+
+  assert.equal((await capturarError(User.actualizar(a.id, { role: "auditoria" }, a.id))).statusCode, 409);
+  assert.equal((await capturarError(User.eliminar(a.id, a.id))).statusCode, 409);
+});
+
+test("no se puede degradar ni eliminar al último superadmin (409)", async () => {
+  const unico = await crearSuperadmin("admin-unico");
+
+  assert.equal((await capturarError(User.actualizar(unico.id, { role: "auditoria" }, idInexistente()))).statusCode, 409);
+  assert.equal((await capturarError(User.eliminar(unico.id, idInexistente()))).statusCode, 409);
+});
+
+test("con dos superadmin, uno puede degradar o eliminar al otro", async () => {
+  const a = await crearSuperadmin("admin-a");
+  const b = await crearSuperadmin("admin-b");
+
+  assert.equal((await User.actualizar(b.id, { role: "auditoria" }, a.id)).role, "auditoria");
+  assert.notEqual(await User.eliminar(b.id, a.id), null);
+  assert.equal(await User.findById(b.id), null);
+});
+
+test("User.buscarTodos filtra por rol y no trae eliminados", async () => {
+  await User.crear(datosUsuario());
+  const otro = await User.crear(datosUsuario({ username: "otro", email: "otro@sumarimpacto.org", role: "auditoria" }));
+  await User.eliminar(otro.id, idInexistente());
+
+  assert.equal((await User.buscarTodos()).length, 1);
+  assert.equal((await User.buscarTodos({ role: "auditoria" })).length, 0);
+});

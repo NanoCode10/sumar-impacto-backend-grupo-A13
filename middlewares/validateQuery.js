@@ -2,6 +2,7 @@ import norm from "../utils/norm.js";
 import esObjectId from "../utils/objectId.js";
 import Organization from "../models/Organization.js";
 import Campaign from "../models/Campaign.js";
+import User from "../models/User.js";
 
 /**
  * VALIDACIÓN DE LOS PARÁMETROS DE CONSULTA (?type=ONG&status=aprobada)
@@ -68,4 +69,20 @@ function validateCampaignQuery(req, res, next) {
   next();
 }
 
-export { validateOrganizationQuery, validateCampaignQuery };
+function validateUserQuery(req, res, next) {
+  const filtros = {};
+  const { role } = req.query;
+
+  if (role !== undefined) {
+    const valor = canonical(role, User.ROLES);
+    if (!valor) {
+      return invalid(res, `role inválido. Valores permitidos: ${User.ROLES.join(", ")}`);
+    }
+    filtros.role = valor;
+  }
+
+  req.filtros = filtros;
+  next();
+}
+
+export { validateOrganizationQuery, validateCampaignQuery, validateUserQuery };

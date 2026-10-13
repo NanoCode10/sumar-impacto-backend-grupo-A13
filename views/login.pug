@@ -1,0 +1,21 @@
+extends layout
+
+block content
+  .card
+    h2 Ingresar
+    p Con tu nombre de usuario o tu email.
+
+    form#login-form(data-volver=volver)
+      label(for="usuario") Usuario o email
+      input#usuario(type="text", name="usuario", required, autofocus, autocomplete="username")
+
+      label(for="password") Contraseña
+      input#password(type="password", name="password", required, autocomplete="current-password")
+
+      .acciones
+        button(type="submit") Ingresar
+
+    p#mensaje(role="status")
+
+  script(src="/js/comun.js")
+  script(src="/js/login.js")

@@ -21,9 +21,33 @@ html(lang="es")
         padding: 1rem 2rem;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
       header h1 {
         margin: 0;
         font-size: 1.5rem;
+      }
+      header h1 a {
+        color: white;
+        text-decoration: none;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.95rem;
+      }
+      nav a {
+        color: white;
+      }
+      nav .usuario {
+        opacity: 0.9;
       }
       main {
         flex: 1;
@@ -151,8 +175,23 @@ html(lang="es")
       }
   body
     header
-      h1 SumarImpacto
+      h1
+        a(href="/") SumarImpacto
+      //- El menú muestra sólo lo que el usuario puede usar; la protección real
+      //- está en las rutas (middlewares/auth.js).
+      nav
+        if puedeGestionar
+          a(href="/organizations") Organizaciones
+          a(href="/campaigns") Campañas
+        if usuario && usuario.role === "superadmin"
+          a(href="/users") Usuarios
+        if usuario
+          span.usuario #{usuario.username} (#{usuario.role})
+          button#btn-salir(type="button") Salir
+        else
+          a(href="/login") Ingresar
     main
       block content
     footer
       p SumarImpacto - IFTS 29 - Backend Grupo A13
+    script(src="/js/sesion.js")

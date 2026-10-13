@@ -1,0 +1,52 @@
+extends layout
+
+block content
+  .card
+    h2 Gestión de usuarios
+    p Sólo para superadmin. La contraseña es obligatoria al crear; al editar, dejala vacía para no cambiarla.
+
+    form#user-form
+      h3#form-titulo Nuevo usuario
+      input(type="hidden", name="id")
+
+      label(for="username") Usuario
+      input#username(type="text", name="username", required, minlength="3", maxlength="30", autocomplete="off")
+
+      label(for="name") Nombre
+      input#name(type="text", name="name", required, minlength="3", maxlength="100")
+
+      label(for="email") Email
+      input#email(type="email", name="email", required)
+
+      label(for="password") Contraseña
+      input#password(type="password", name="password", minlength="8", autocomplete="new-password")
+
+      label(for="role") Rol
+      select#role(name="role")
+        each role in roles
+          option(value=role, selected=(role === "organizacion"))= role
+
+      .acciones
+        button(type="submit") Guardar
+        button#btn-cancelar(type="button", hidden) Cancelar edición
+
+    p#mensaje(role="status")
+
+  h3.section-title Usuarios
+  table.tabla
+    thead
+      tr
+        th Usuario
+        th Nombre
+        th Email
+        th Rol
+        th Acciones
+    tbody#user-tbody
+      tr
+        td(colspan="5") Cargando...
+
+  p
+    a(href="/") Volver al inicio
+
+  script(src="/js/comun.js")
+  script(src="/js/users.js")

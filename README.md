@@ -25,7 +25,8 @@ El proyecto está en la **segunda entrega**. Respecto de la primera:
 - los controllers son **asincrónicos** (`async` / `await`);
 - se agregaron pantallas de gestión que consumen la API con **`fetch()`**;
 - el `DELETE` pasó a ser **borrado lógico**;
-- se agregaron **usuarios** con contraseña hasheada, **roles** y **login**.
+- se agregaron **usuarios** con contraseña hasheada, **roles**, **login con sesión** y
+  **permisos por rol**.
 
 Lo que queda fuera de esta entrega está en [Desarrollo futuro](#desarrollo-futuro).
 
@@ -38,6 +39,8 @@ Lo que queda fuera de esta entrega está en [Desarrollo futuro](#desarrollo-futu
 - **`fetch()`** en el navegador (sin frameworks de frontend)
 - **MongoDB Community Server** (local) y **Mongoose**
 - **dotenv** (variables de entorno)
+- **express-session** y **connect-mongo** (sesión de usuario guardada en MongoDB)
+- **bcryptjs** (hash de contraseñas)
 - `node:test` y `node:assert/strict` (testing, sin dependencias externas)
 - Nodemon (desarrollo)
 
@@ -67,11 +70,12 @@ La **API** (`/api/...`) responde siempre JSON y las **vistas** (`/`, `/organizat
 
 ```text
 ├── config/
-│   └── db.js                  # conexión a MongoDB (conectarDB)
+│   ├── db.js                  # conexión a MongoDB (conectarDB)
+│   └── session.js             # sesión de usuario (express-session + connect-mongo)
 ├── controllers/               # organizations, campaigns, users, auth y views
 ├── data/                      # datos de ejemplo que carga el seed
 ├── docs/images/               # capturas
-├── middlewares/               # validateId, validateBody, validateQuery, errors
+├── middlewares/               # validateId, validateBody, validateQuery, errors, auth
 ├── models/                    # Organization, Campaign y User (Mongoose)
 ├── public/js/                 # JavaScript del navegador (fetch)
 ├── routes/                    # rutas de la API y de las vistas
@@ -137,11 +141,15 @@ Contenido de `.env.example`:
 ```env
 PORT=3000
 MONGO_URI=mongodb://127.0.0.1:27017/sumarimpacto
+SESSION_SECRET=sumarimpacto-desarrollo-cambiar-en-produccion
 ```
 
 - `PORT` es opcional (por defecto `3000`).
 - `MONGO_URI` indica el servidor y la base (`sumarimpacto`). MongoDB crea la base
   con la primera escritura.
+- `SESSION_SECRET` firma la cookie de sesión. El valor de la plantilla sirve para
+  desarrollo; en producción va un texto largo y aleatorio. Sin esta variable el
+  servidor no arranca.
 
 El archivo `.env` no se sube a Git (está en `.gitignore`): cada integrante tiene el suyo.
 
@@ -245,8 +253,16 @@ Todas las rutas de la API están bajo `/api` y responden siempre JSON.
 | GET    | `/api/campaigns/:id`               | Obtiene una campaña                                             |
 | PUT    | `/api/campaigns/:id`               | Actualiza una campaña                                           |
 | DELETE | `/api/campaigns/:id`               | Elimina una campaña (borrado lógico)                            |
+| GET    | `/api/users`                       | Lista usuarios (filtro opcional `role`)                         |
 | POST   | `/api/users`                       | Crea un usuario                                                 |
-| POST   | `/api/auth/login`                  | Verifica usuario (username o email) y contraseña                |
+| GET    | `/api/users/:id`                   | Obtiene un usuario                                              |
+| PUT    | `/api/users/:id`                   | Actualiza nombre, email, rol y contraseña (no el username)      |
+| DELETE | `/api/users/:id`                   | Elimina un usuario (borrado lógico)                             |
+| POST   | `/api/auth/login`                  | Inicia sesión con usuario (username o email) y contraseña       |
+| POST   | `/api/auth/logout`                 | Cierra la sesión                                                |
+| GET    | `/api/auth/me`                     | Usuario de la sesión actual (`401` si no hay sesión)            |
+
+Quién puede usar cada ruta está en [Permisos](#permisos).
 
 ### Usuarios y login
 
@@ -256,13 +272,43 @@ Todas las rutas de la API están bajo `/api` y responden siempre JSON.
   incluso de un usuario eliminado.
 - **Roles**: `superadmin`, `administrador`, `auditoria`, `organizacion` (por defecto, el de
   menos permisos: `organizacion`).
+- **Edición** (`PUT /api/users/:id`): nombre, email, rol y, si se manda, una contraseña
+  nueva. El username es la identidad del usuario y no se modifica (`400`).
+- **Reglas** (`409`), para que el sistema no quede sin quien gestione usuarios: nadie se
+  elimina a sí mismo ni se quita el rol de superadmin, y no se elimina ni se degrada al
+  último superadmin.
 - **Login** (`POST /api/auth/login`), con body `{ "usuario": "...", "password": "..." }`:
   `usuario` puede ser el username o el email. `200` con el usuario si coinciden; `401`
   con el mismo mensaje si el usuario no existe o la contraseña es incorrecta, para no
   revelar qué usuarios existen.
-- **Alcance**: el login **verifica credenciales, pero no crea sesión ni token**. La API no
-  recuerda al usuario entre pedidos, así que **el rol se guarda pero no restringe el
-  acceso** a ninguna ruta. Ver [Desarrollo futuro](#desarrollo-futuro).
+
+### Sesión
+
+Al iniciar sesión, el servidor guarda en la sesión quién es el usuario y su rol, y le
+da al navegador una **cookie** con un identificador al azar. El navegador la manda sola
+en cada pedido, y así el servidor sabe quién pide. Se usa **express-session**, y las
+sesiones se guardan en MongoDB (colección `sessions`, con **connect-mongo**), así que
+sobreviven a los reinicios del servidor.
+
+- La cookie es `HttpOnly` (el JavaScript de la página no puede leerla), `SameSite=Lax`
+  (no viaja en pedidos que se originan en otros sitios) y `Secure` en producción (sólo
+  por HTTPS). Vence a las 8 horas.
+- Al iniciar sesión se renueva el identificador, para que no sirva uno plantado antes
+  (fijación de sesión).
+- El logout es un `POST`, no un enlace: un `GET` lo podría disparar otra página.
+
+### Permisos
+
+| Qué | Quién |
+| --- | ----- |
+| Inicio, detalle de organización y de campaña, y los `GET` de organizaciones y campañas | Público |
+| Pantallas de gestión de organizaciones y campañas, y sus `POST`, `PUT` y `DELETE` | `superadmin` o `administrador` |
+| Gestión de usuarios (página `/users` y toda la API `/api/users`) | Sólo `superadmin` |
+
+Sin sesión, la API responde `401` y las páginas llevan al login, que después vuelve a la
+página pedida. Con sesión pero sin el rol, `403`. La protección está en
+`middlewares/auth.js` (`requireLogin` y `requireRole`); el menú sólo muestra lo que el
+rol puede usar.
 
 ### Identificadores (ObjectId) y relación 1:N
 
@@ -352,13 +398,17 @@ Campos obligatorios al crear:
 | Código | Cuándo |
 | ------ | ------ |
 | `400`  | Id, body o filtro inválidos; JSON mal formado |
-| `404`  | La ruta, la organización o la campaña no existen; la campaña referencia una organización inexistente |
+| `401`  | Hace falta iniciar sesión, o usuario y contraseña no coinciden |
+| `403`  | Hay sesión, pero el rol no alcanza para la operación |
+| `404`  | La ruta, la organización, la campaña o el usuario no existen; la campaña referencia una organización inexistente |
 | `409`  | Se intenta crear una campaña, o moverla a otra organización, y la organización no está `aprobada` |
 | `409`  | Se intenta eliminar una organización que todavía tiene campañas vigentes |
+| `409`  | Username o email ya usados; eliminarse a sí mismo o quitarse el rol de superadmin; dejar el sistema sin superadmin |
 | `500`  | Error inesperado (mensaje genérico, sin detalles internos) |
 
 Las reglas de negocio están en los Models, en métodos propios:
-`Campaign.crear`, `Campaign.actualizar`, `Campaign.eliminar` y `Organization.eliminar`.
+`Campaign.crear`, `Campaign.actualizar`, `Campaign.eliminar`, `Organization.eliminar`,
+`User.crear`, `User.actualizar` y `User.eliminar`.
 
 `middlewares/errors.js` centraliza las respuestas: en la API responde JSON
 (`{ "error": "..." }`) y en las vistas muestra la página `error.pug`.
@@ -369,15 +419,17 @@ Estas rutas no forman parte de la API: devuelven páginas HTML.
 
 | Ruta                 | Página |
 | -------------------- | ------ |
-| `/`                  | Inicio, con el listado de organizaciones y campañas |
-| `/organizations`     | Gestión de organizaciones |
-| `/campaigns`         | Gestión de campañas |
-| `/organizations/:id` | Detalle de una organización |
-| `/campaigns/:id`     | Detalle de una campaña |
+| `/`                  | Inicio. Sin sesión muestra sólo las organizaciones aprobadas y las campañas activas, lo que le interesa a un donante; con sesión, todos los estados |
+| `/login`             | Ingreso con usuario o email |
+| `/organizations`     | Gestión de organizaciones (`superadmin` o `administrador`) |
+| `/campaigns`         | Gestión de campañas (`superadmin` o `administrador`) |
+| `/users`             | Gestión de usuarios (sólo `superadmin`) |
+| `/organizations/:id` | Detalle de una organización (sin sesión, sólo si está aprobada; si no, 404) |
+| `/campaigns/:id`     | Detalle de una campaña (sin sesión, sólo si está activa y su organización aprobada; si no, 404) |
 
 Las páginas de **gestión** cargan los datos desde el navegador con `fetch()` contra la
-API (`public/js/organizations.js`, `public/js/campaigns.js` y las funciones comunes de
-`public/js/comun.js`):
+API (`public/js/organizations.js`, `public/js/campaigns.js`, `public/js/users.js` y las
+funciones comunes de `public/js/comun.js`):
 
 - listar, crear, editar y eliminar sin recargar la página;
 - el mismo formulario sirve para alta y edición;
@@ -400,8 +452,8 @@ que ejecuta `node --test`. El corredor nativo descubre solo todos los archivos
 Resultado actual:
 
 ```text
-tests 90
-pass 90
+tests 106
+pass 106
 fail 0
 ```
 
@@ -411,7 +463,8 @@ fail 0
 | `validateOrganization.test.js` | 17 | Campos obligatorios, tipos, valores permitidos y normalización de organizaciones |
 | `validateCampaigns.test.js` | 26 | Campos obligatorios, tipos reales, `organizationId` y valores permitidos de campañas |
 | `validateUser.test.js` | 11 | Validación del alta de usuarios y del login |
-| `reglasNegocio.test.js` | 26 | Reglas 404/409, schemas, actualizaciones parciales, filtros, borrado lógico, usuarios y login contra MongoDB |
+| `auth.test.js` | 10 | Middlewares de sesión y permisos (401, 403, redirección al login), edición y filtro de usuarios |
+| `reglasNegocio.test.js` | 32 | Reglas 404/409, schemas, actualizaciones parciales, filtros, borrado lógico y usuarios (alta, login, edición, baja y reglas de superadmin) contra MongoDB |
 
 ### Bases de desarrollo y de pruebas
 
@@ -449,12 +502,6 @@ un ObjectId.
 
 Fuera del alcance de esta entrega, por decisión del grupo:
 
-- **Sesiones o JWT.** Con ellas la API reconocería al usuario en cada pedido y el login
-  impediría el acceso a quien no se identificó.
-- **Roles que restrinjan el acceso**, que dependen de lo anterior: por ejemplo, que sólo
-  `superadmin` gestione usuarios.
-- **Gestión completa de usuarios** (listado, edición, baja y una página web), que sin
-  sesiones quedaría abierta a cualquiera.
 - **Requerimientos especificados en Ingeniería de Software** que todavía no están en el
   backend, como el registro de evaluación de organizaciones con motivo de rechazo.
 

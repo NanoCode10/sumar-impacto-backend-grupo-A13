@@ -13,9 +13,16 @@ import softDelete from "../utils/softDelete.js";
  * "@", así que un valor con "@" siempre es un email.
  *
  * MÉTODOS PROPIOS
+ *   buscarTodos(filtros): listado, con filtro opcional por rol.
  *   crear(datos): hashea la contraseña y crea el usuario (409 si el username o el
  *                 email ya existen).
+ *   actualizar(id, datos, idActor): nombre, email, rol y contraseña (username no).
+ *   eliminar(id, idActor): borrado lógico.
  *   verificarCredenciales(usuario, password): el usuario si coinciden; null si no.
+ *
+ * Reglas para que el sistema no quede sin quien gestione usuarios (409):
+ *   - nadie se elimina a sí mismo ni se quita el rol de superadmin;
+ *   - no se elimina ni se degrada al último superadmin.
  */
 
 // superadmin: todo, incluida la gestión de usuarios y roles.
@@ -82,6 +89,31 @@ const userSchema = new mongoose.Schema(
 // reservados (índice único): no se reasigna la identidad de alguien eliminado.
 userSchema.plugin(softDelete);
 
+function conflicto(mensaje) {
+  const err = new Error(mensaje);
+  err.statusCode = 409;
+  return err;
+}
+
+// exists() no ve a los usuarios eliminados (borrado lógico), pero el índice único
+// sí: su username y su email siguen reservados. La base lo rechaza con el código
+// 11000 (clave duplicada), que se convierte en el mismo 409.
+function conflictoPorDuplicado(err) {
+  if (err.code !== 11000) {
+    return err;
+  }
+  const campo = Object.keys(err.keyPattern ?? {})[0] ?? "username o email";
+  return conflicto(`Ya existe un usuario con ese ${campo} (eliminado): no puede reutilizarse`);
+}
+
+/**
+ * Usuarios ordenados por fecha de alta. Sin filtros, todos.
+ * @param {{role?: string}} filtros
+ */
+userSchema.statics.buscarTodos = function (filtros = {}) {
+  return this.find(filtros).sort({ _id: 1 });
+};
+
 /**
  * Crea un usuario con la contraseña hasheada.
  * Regla: username y email únicos (409). Se comprueba antes de guardar para dar
@@ -93,9 +125,7 @@ userSchema.statics.crear = async function ({ username, name, email, password, ro
 
   for (const [campo, valor] of [["username", usernameNormal], ["email", emailNormal]]) {
     if (await this.exists({ [campo]: valor })) {
-      const err = new Error(`Ya existe un usuario con ese ${campo}: ${valor}`);
-      err.statusCode = 409;
-      throw err;
+      throw conflicto(`Ya existe un usuario con ese ${campo}: ${valor}`);
     }
   }
 
@@ -103,17 +133,82 @@ userSchema.statics.crear = async function ({ username, name, email, password, ro
   try {
     return await this.create({ username: usernameNormal, name, email: emailNormal, passwordHash, role });
   } catch (err) {
-    // exists() no ve a los usuarios eliminados (borrado lógico), pero el índice
-    // único sí: su username y su email siguen reservados. La base lo rechaza con
-    // el código 11000 (clave duplicada), que acá se convierte en el mismo 409.
-    if (err.code === 11000) {
-      const campo = Object.keys(err.keyPattern ?? {})[0] ?? "username o email";
-      const conflicto = new Error(`Ya existe un usuario con ese ${campo} (eliminado): no puede reutilizarse`);
-      conflicto.statusCode = 409;
-      throw conflicto;
-    }
-    throw err;
+    throw conflictoPorDuplicado(err);
   }
+};
+
+/**
+ * Comprueba que quitarle a un usuario el rol de superadmin (por baja o por cambio
+ * de rol) no deje al sistema sin superadmin, ni lo haga el propio superadmin.
+ */
+async function comprobarSuperadmin(Modelo, user, idActor, { propio, ultimo }) {
+  if (user.id === idActor) {
+    throw conflicto(propio);
+  }
+  if ((await Modelo.countDocuments({ role: "superadmin" })) <= 1) {
+    throw conflicto(ultimo);
+  }
+}
+
+/**
+ * Actualiza sólo los campos enviados (name, email, role, password). El username
+ * no se modifica: es la identidad del usuario. Devuelve el usuario actualizado,
+ * o null si no existe. idActor es el usuario de la sesión que hace el cambio.
+ */
+userSchema.statics.actualizar = async function (id, { name, email, role, password }, idActor) {
+  const user = await this.findById(id);
+  if (!user) {
+    return null;
+  }
+
+  if (role !== undefined && user.role === "superadmin" && role !== "superadmin") {
+    await comprobarSuperadmin(this, user, idActor, {
+      propio: "No podés quitarte el rol de superadmin",
+      ultimo: "No se le puede quitar el rol al último superadmin"
+    });
+  }
+
+  if (email !== undefined) {
+    const emailNormal = email.trim().toLowerCase();
+    if (emailNormal !== user.email && (await this.exists({ email: emailNormal }))) {
+      throw conflicto(`Ya existe un usuario con ese email: ${emailNormal}`);
+    }
+    user.email = emailNormal;
+  }
+  if (name !== undefined) user.name = name;
+  if (role !== undefined) user.role = role;
+  if (password !== undefined) user.passwordHash = await bcrypt.hash(password, COSTO_HASH);
+
+  try {
+    return await user.save();
+  } catch (err) {
+    throw conflictoPorDuplicado(err);
+  }
+};
+
+/**
+ * Elimina un usuario (borrado lógico). Devuelve el usuario eliminado, o null si
+ * no existe. idActor es el usuario de la sesión que lo elimina.
+ */
+userSchema.statics.eliminar = async function (id, idActor) {
+  const user = await this.findById(id);
+  if (!user) {
+    return null;
+  }
+
+  if (user.id === idActor) {
+    throw conflicto("No podés eliminar tu propio usuario");
+  }
+  if (user.role === "superadmin") {
+    await comprobarSuperadmin(this, user, idActor, {
+      propio: "No podés eliminar tu propio usuario",
+      ultimo: "No se puede eliminar al último superadmin"
+    });
+  }
+
+  user.deletedAt = new Date();
+  await user.save();
+  return user;
 };
 
 /**

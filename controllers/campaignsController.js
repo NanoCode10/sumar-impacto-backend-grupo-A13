@@ -1,4 +1,5 @@
 import Campaign from "../models/Campaign.js";
+import Organization from "../models/Organization.js";
 
 /**
  * RESPONSABILIDAD DE LA CAPA CONTROLLER
@@ -51,8 +52,15 @@ async function renderCampaign(req, res, next) {
     // mostrarla. La API devuelve organizationId como id, sin populate.
     const campaign = await Campaign.findById(req.params.id).populate("organizationId", "name status");
 
+    // Sin sesión, sólo las activas de organizaciones aprobadas: igual que la home
+    // pública. Para el público, cualquier otra no existe (404).
+    const visible =
+      campaign &&
+      (req.session.user ||
+        (campaign.status === "activa" && campaign.organizationId?.status === Organization.APPROVED));
+
     // Es una página HTML: el 404 lo arma el errorHandler con la vista error.pug.
-    if (!campaign) {
+    if (!visible) {
       const err = new Error("Campaña no encontrada");
       err.statusCode = 404;
       return next(err);

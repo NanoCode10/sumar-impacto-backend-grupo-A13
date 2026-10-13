@@ -169,6 +169,11 @@ function validateUser(mode) {
       }
     }
 
+    // El username es la identidad del usuario: se elige en el alta y no se edita.
+    if (mode === "update" && body.username !== undefined) {
+      return invalid(res, "username no se puede modificar");
+    }
+
     if (body.username !== undefined) {
       const username = typeof body.username === "string" && body.username.trim().toLowerCase();
       if (!username || !User.USERNAME.test(username)) {
