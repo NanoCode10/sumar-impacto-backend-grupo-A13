@@ -30,6 +30,20 @@ El proyecto está en la **segunda entrega**. Respecto de la primera:
 
 Lo que queda fuera de esta entrega está en [Desarrollo futuro](#desarrollo-futuro).
 
+## Prueba rápida
+
+La base de datos es **MongoDB local**: no hay una base compartida en la nube, así que
+cada persona que prueba el proyecto necesita su propio servidor MongoDB y cargar los
+datos de ejemplo. Los pasos, en orden (el detalle de cada uno está más abajo):
+
+1. Node.js 20.19 o superior y `npm install`.
+2. MongoDB Community Server instalado y en ejecución ([Instalación § 3](#3-mongodb-community-server-local)).
+3. Copiar `.env.example` como `.env` (los valores por defecto apuntan a MongoDB local).
+4. Cargar los datos de ejemplo: `npm run seed -- --confirm-db=sumarimpacto`.
+5. Verificar con `npm test` (99 pruebas) y levantar con `npm run dev`.
+6. Abrir <http://localhost:3000>. En **Ingresar** se puede probar el login con
+   `superadmin` / `superadmin` (ver [Usuarios de prueba](#usuarios-de-prueba)).
+
 ## Tecnologías
 
 - JavaScript con **ES Modules**
@@ -62,8 +76,8 @@ Router  →  Middleware de validación  →  Controller  →  Model (Mongoose)  
   que accede a la base de datos.
 - **Views** (`views/`): páginas Pug. El JavaScript del navegador está en `public/js/`.
 
-La **API** (`/api/...`) responde siempre JSON y las **vistas** (`/`, `/organizations`,
-`/campaigns`) responden HTML.
+La **API** (`/api/...`) responde siempre JSON y las **vistas** (`/`, `/login`,
+`/organizations`, `/campaigns`, `/users`) responden HTML.
 
 ## Estructura de carpetas
 
@@ -124,7 +138,8 @@ Para comprobar que está funcionando:
 Get-Service MongoDB
 ```
 
-El estado debe ser `Running`. El servidor escucha en `127.0.0.1:27017`.
+El estado debe ser `Running`. El servidor escucha en `127.0.0.1:27017`. Si el servicio
+está detenido, se inicia con `Start-Service MongoDB` en una terminal de administrador.
 
 ### 4. Variables de entorno (`.env`)
 
@@ -202,9 +217,14 @@ Cómo funciona:
    ese nombre con el de la base **realmente conectada** y, si falta o no coincide,
    termina sin escribir nada.
 8. Puede ejecutarse nuevamente sin duplicar esos mismos registros, **mientras sus claves
-   de identificación (email de la organización, título de la campaña) no cambien**. Si
-   se modifica a mano el email de una organización o el título de una campaña, una nueva
-   ejecución la volverá a crear.
+   de identificación (email de la organización, título de la campaña, username y email
+   del usuario) no cambien**. Si se modifica a mano alguna de ellas, una nueva ejecución
+   volverá a crear el registro.
+
+> **Si la base tiene usuarios creados antes del cambio de hash** (con `bcryptjs`, en
+> versiones anteriores de la rama), esos usuarios no pueden entrar: el formato del hash
+> cambió. Hay que borrarlos (por ejemplo, desde MongoDB Compass, la colección `users`) y
+> volver a correr el seed.
 
 Al terminar muestra un resumen:
 
@@ -346,11 +366,13 @@ Los valores de los filtros se comparan sin distinguir tildes ni mayúsculas
 
 ### Valores permitidos
 
-Definidos una sola vez en los Models (`models/Organization.js` y `models/Campaign.js`):
+Definidos una sola vez en los Models (`models/Organization.js`, `models/Campaign.js` y
+`models/User.js`):
 
 - **Organization `type`**: `ONG`, `fundación`, `comedor`
 - **Organization `status`**: `pendiente`, `aprobada`, `suspendida`, `desvinculada` (por defecto `pendiente`)
 - **Campaign `status`**: `borrador`, `activa`, `suspendida`, `cerrada` (por defecto `borrador`)
+- **User `role`**: `superadmin`, `administrador`, `auditoria`, `organizacion` (por defecto `organizacion`)
 
 ### Validaciones
 
@@ -361,8 +383,10 @@ La validación tiene dos capas:
    - `validateBody.js`: en POST exige los campos obligatorios; en POST y PUT controla
      los tipos reales del JSON (un número enviado como texto se rechaza), los valores
      permitidos y el formato del email. Deja en el body el valor canónico (por ejemplo
-     `"FUNDACION"` → `"fundación"`).
-   - `validateQuery.js`: valida los filtros de los listados.
+     `"FUNDACION"` → `"fundación"`). Para usuarios controla además el formato del
+     username, el largo mínimo de la contraseña (8) y que el username no se edite; para el
+     login, que lleguen usuario y contraseña.
+   - `validateQuery.js`: valida los filtros de los listados (incluido `role` en usuarios).
 2. **Schemas de Mongoose** (tipos, `enum`, longitudes, formato de email, monto mayor a 0).
 
 Campos obligatorios al crear:
@@ -370,6 +394,8 @@ Campos obligatorios al crear:
 - **Organization**: `name` (3 a 100 caracteres), `type`, `email`.
 - **Campaign**: `title` (5 a 120 caracteres), `description`, `targetAmount` (número
   mayor a 0) y `organizationId` (ObjectId en texto).
+- **User**: `username` (3 a 30 caracteres: letras, números, punto, guion o guion bajo),
+  `name`, `email` y `password` (8 caracteres como mínimo).
 
 ### Errores y reglas de negocio
 
@@ -484,6 +510,8 @@ Fuera del alcance de esta entrega:
   `superadmin` gestione usuarios). Hoy cualquiera puede usar las páginas de gestión y la
   API, incluso entrando por la dirección directa. Una versión con `express-session`
   quedó como referencia en la rama `sesion-entrega3`.
+- **Base de datos en la nube (MongoDB Atlas, entrega 3).** Hoy la base es local: cada
+  integrante y el docente tienen la suya y la cargan con el seed.
 - **Requerimientos especificados en Ingeniería de Software** que todavía no están en el
   backend, como el registro de evaluación de organizaciones con motivo de rechazo.
 
