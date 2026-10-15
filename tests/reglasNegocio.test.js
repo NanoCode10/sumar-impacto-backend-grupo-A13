@@ -373,16 +373,26 @@ function datosUsuario(extra = {}) {
   };
 }
 
-test("User.crear guarda el hash, nunca la contraseña, y la respuesta no lo incluye", async () => {
+test("User.crear guarda sal y hash (PBKDF2), nunca la contraseña, y la respuesta no los incluye", async () => {
   const user = await User.crear(datosUsuario());
 
   assert.notEqual(user.passwordHash, "clave-segura");
-  assert.match(user.passwordHash, /^\$2[aby]\$10\$/);
+  assert.match(user.salt, /^[0-9a-f]{32}$/, "sal de 16 bytes en hexadecimal");
+  assert.match(user.passwordHash, /^[0-9a-f]{128}$/, "hash de 64 bytes en hexadecimal");
   assert.equal(user.role, "organizacion", "sin rol, el de menos permisos");
 
   const respuesta = comoRespuesta(user);
   assert.equal(respuesta.passwordHash, undefined);
+  assert.equal(respuesta.salt, undefined);
   assert.equal(respuesta.password, undefined);
+});
+
+test("crearPasswordSeguro da hashes distintos para la misma contraseña (sal propia)", () => {
+  const a = User.crearPasswordSeguro("clave-segura");
+  const b = User.crearPasswordSeguro("clave-segura");
+
+  assert.notEqual(a.salt, b.salt);
+  assert.notEqual(a.passwordHash, b.passwordHash);
 });
 
 test("User.crear rechaza username o email repetidos (409), sin distinguir mayúsculas", async () => {
@@ -437,7 +447,7 @@ const crearSuperadmin = (username) =>
 test("User.actualizar cambia rol y contraseña; el username no se toca", async () => {
   const user = await User.crear(datosUsuario());
 
-  const actualizado = await User.actualizar(user.id, { role: "administrador", password: "clave-nueva-1" }, idInexistente());
+  const actualizado = await User.actualizar(user.id, { role: "administrador", password: "clave-nueva-1" });
 
   assert.equal(actualizado.role, "administrador");
   assert.equal(actualizado.username, "mgarcia");
@@ -449,38 +459,30 @@ test("User.actualizar rechaza un email que ya usa otro usuario (409)", async () 
   await User.crear(datosUsuario());
   const otro = await User.crear(datosUsuario({ username: "otro", email: "otro@sumarimpacto.org" }));
 
-  const err = await capturarError(User.actualizar(otro.id, { email: "MARIA@sumarimpacto.org" }, idInexistente()));
+  const err = await capturarError(User.actualizar(otro.id, { email: "MARIA@sumarimpacto.org" }));
   assert.equal(err.statusCode, 409);
-});
-
-test("un superadmin no puede quitarse el rol ni eliminarse a sí mismo (409)", async () => {
-  const a = await crearSuperadmin("admin-a");
-  await crearSuperadmin("admin-b");
-
-  assert.equal((await capturarError(User.actualizar(a.id, { role: "auditoria" }, a.id))).statusCode, 409);
-  assert.equal((await capturarError(User.eliminar(a.id, a.id))).statusCode, 409);
 });
 
 test("no se puede degradar ni eliminar al último superadmin (409)", async () => {
   const unico = await crearSuperadmin("admin-unico");
 
-  assert.equal((await capturarError(User.actualizar(unico.id, { role: "auditoria" }, idInexistente()))).statusCode, 409);
-  assert.equal((await capturarError(User.eliminar(unico.id, idInexistente()))).statusCode, 409);
+  assert.equal((await capturarError(User.actualizar(unico.id, { role: "auditoria" }))).statusCode, 409);
+  assert.equal((await capturarError(User.eliminar(unico.id))).statusCode, 409);
 });
 
-test("con dos superadmin, uno puede degradar o eliminar al otro", async () => {
-  const a = await crearSuperadmin("admin-a");
+test("con dos superadmin, se puede degradar o eliminar a uno de ellos", async () => {
+  await crearSuperadmin("admin-a");
   const b = await crearSuperadmin("admin-b");
 
-  assert.equal((await User.actualizar(b.id, { role: "auditoria" }, a.id)).role, "auditoria");
-  assert.notEqual(await User.eliminar(b.id, a.id), null);
+  assert.equal((await User.actualizar(b.id, { role: "auditoria" })).role, "auditoria");
+  assert.notEqual(await User.eliminar(b.id), null);
   assert.equal(await User.findById(b.id), null);
 });
 
 test("User.buscarTodos filtra por rol y no trae eliminados", async () => {
   await User.crear(datosUsuario());
   const otro = await User.crear(datosUsuario({ username: "otro", email: "otro@sumarimpacto.org", role: "auditoria" }));
-  await User.eliminar(otro.id, idInexistente());
+  await User.eliminar(otro.id);
 
   assert.equal((await User.buscarTodos()).length, 1);
   assert.equal((await User.buscarTodos({ role: "auditoria" })).length, 0);

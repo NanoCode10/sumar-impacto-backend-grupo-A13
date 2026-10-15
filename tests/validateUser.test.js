@@ -2,10 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { validateUser, validateLogin } from "../middlewares/validateBody.js";
+import { validateUserQuery } from "../middlewares/validateQuery.js";
 
 // Ejecuta un middleware con un req/res de prueba y devuelve lo que respondió.
-function ejecutar(middleware, body) {
-  const req = { body };
+function ejecutar(middleware, body, query = {}) {
+  const req = { body, query };
   let respuesta;
   let siguienteLlamado = false;
 
@@ -110,4 +111,24 @@ test("validateLogin exige usuario y password", () => {
 
 test("validateLogin rechaza valores que no son texto", () => {
   probarError(validateLogin, { usuario: "admin", password: 12345678 }, /deben ser textos/);
+});
+
+// ---------------------------------------------------------------------------
+// Edición y filtro de usuarios
+// ---------------------------------------------------------------------------
+
+test("validateUser en modo update rechaza cambiar el username", () => {
+  probarError(validateUser("update"), { username: "otro" }, /username no se puede modificar/);
+});
+
+test("validateUser en modo update acepta sólo los campos enviados, sin contraseña", () => {
+  assert.equal(ejecutar(validateUser("update"), { role: "administrador" }).siguienteLlamado, true);
+});
+
+test("validateUserQuery normaliza el rol y rechaza uno inexistente", () => {
+  const ok = ejecutar(validateUserQuery, undefined, { role: "AUDITORIA" });
+  assert.deepEqual(ok.req.filtros, { role: "auditoria" });
+
+  const mal = ejecutar(validateUserQuery, undefined, { role: "rey" });
+  assert.equal(mal.respuesta.codigo, 400);
 });

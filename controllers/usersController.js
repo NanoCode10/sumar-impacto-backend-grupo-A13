@@ -2,10 +2,8 @@ import User from "../models/User.js";
 
 /**
  * CONTROLLER DE USUARIOS
- * Todas las rutas son sólo para superadmin (ver routes/usersRoutes.js). Las
- * respuestas nunca incluyen la contraseña ni su hash (toJSON del modelo).
- * Las reglas (409) las aplica el modelo; acá se le pasa quién hace el cambio
- * (el usuario de la sesión), para que nadie se elimine o se degrade a sí mismo.
+ * Las respuestas nunca incluyen la contraseña ni su hash (toJSON del modelo).
+ * Las reglas (409) las aplica el modelo.
  */
 
 /**
@@ -57,7 +55,7 @@ async function updateUser(req, res, next) {
   try {
     const { name, email, role, password } = req.body;
 
-    const user = await User.actualizar(req.params.id, { name, email, role, password }, req.session.user.id);
+    const user = await User.actualizar(req.params.id, { name, email, role, password });
     if (!user) {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }
@@ -72,7 +70,7 @@ async function updateUser(req, res, next) {
  */
 async function deleteUser(req, res, next) {
   try {
-    const user = await User.eliminar(req.params.id, req.session.user.id);
+    const user = await User.eliminar(req.params.id);
     if (!user) {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }

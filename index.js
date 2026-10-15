@@ -4,7 +4,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { conectarDB } from "./config/db.js";
-import { crearSesion } from "./config/session.js";
 
 import organizationsRoutes from "./routes/organizationsRoutes.js";
 import campaignsRoutes from "./routes/campaignsRoutes.js";
@@ -13,12 +12,11 @@ import authRoutes from "./routes/authRoutes.js";
 import viewsRoutes from "./routes/viewsRoutes.js";
 
 import { notFound, errorHandler } from "./middlewares/errors.js";
-import { exponerUsuario } from "./middlewares/auth.js";
 
 // En ES Modules no existe __dirname: se obtiene a partir de la URL de este archivo.
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Carga las variables de .env en process.env (MONGO_URI, PORT, SESSION_SECRET). quiet evita el
+// Carga las variables de .env en process.env (MONGO_URI, PORT). quiet evita el
 // mensaje informativo que dotenv imprime en cada arranque.
 dotenv.config({ quiet: true });
 
@@ -34,11 +32,6 @@ app.set("views", path.join(__dirname, "views"));
 
 // Archivos estáticos (JS del navegador que usa fetch contra la API). Middleware incorporado en Express.
 app.use(express.static(path.join(__dirname, "public")));
-
-// Sesión de usuario: después de los estáticos (no la necesitan) y antes de las
-// rutas, que la usan para saber quién pide.
-app.use(crearSesion());
-app.use(exponerUsuario);
 
 // API REST: responde siempre JSON
 app.use("/api/organizations", organizationsRoutes);

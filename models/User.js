@@ -1,28 +1,30 @@
+import crypto from "node:crypto";
 import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
 
 import Organization from "./Organization.js";
 import softDelete from "../utils/softDelete.js";
 
 /**
  * MODELO User (Mongoose)
- * La contraseña nunca se guarda: se guarda su hash (bcryptjs) en passwordHash,
- * y toJSON lo quita de toda respuesta.
+ * La contraseña nunca se guarda: se guarda su hash (passwordHash) y la sal con
+ * que se calculó (salt), con el módulo crypto de Node, como en el ejemplo de la
+ * cátedra. toJSON quita los dos de toda respuesta.
  *
  * Se puede entrar con el nombre de usuario o con el email: el username no admite
  * "@", así que un valor con "@" siempre es un email.
  *
  * MÉTODOS PROPIOS
+ *   crearPasswordSeguro(password): sal aleatoria + hash (estático).
+ *   validarPassword(password): compara una contraseña con la guardada (de instancia).
  *   buscarTodos(filtros): listado, con filtro opcional por rol.
- *   crear(datos): hashea la contraseña y crea el usuario (409 si el username o el
- *                 email ya existen).
- *   actualizar(id, datos, idActor): nombre, email, rol y contraseña (username no).
- *   eliminar(id, idActor): borrado lógico.
+ *   crear(datos): crea el usuario con la contraseña hasheada (409 si el username o
+ *                 el email ya existen).
+ *   actualizar(id, datos): nombre, email, rol y contraseña (username no).
+ *   eliminar(id): borrado lógico.
  *   verificarCredenciales(usuario, password): el usuario si coinciden; null si no.
  *
- * Reglas para que el sistema no quede sin quien gestione usuarios (409):
- *   - nadie se elimina a sí mismo ni se quita el rol de superadmin;
- *   - no se elimina ni se degrada al último superadmin.
+ * Regla: no se elimina ni se degrada al último superadmin (409), para que el
+ * sistema no quede sin quien gestione usuarios.
  */
 
 // superadmin: todo, incluida la gestión de usuarios y roles.
@@ -33,9 +35,15 @@ const ROLES = ["superadmin", "administrador", "auditoria", "organizacion"];
 // Letras, números, punto, guion y guion bajo; sin "@" para no confundirse con un email.
 const USERNAME = /^[a-z0-9._-]{3,30}$/;
 
-// Costo de bcrypt: 2^10 rondas. Más alto es más lento para el servidor y para
-// quien intente adivinar contraseñas.
-const COSTO_HASH = 10;
+// Parámetros del hash (PBKDF2), los del ejemplo de la cátedra: 10000 iteraciones,
+// 64 bytes de resultado y SHA-512. Más iteraciones es más lento para el servidor
+// y para quien intente adivinar contraseñas.
+const ITERACIONES = 10000;
+const LARGO_HASH = 64;
+const ALGORITMO = "sha512";
+
+const calcularHash = (password, salt) =>
+  crypto.pbkdf2Sync(password, salt, ITERACIONES, LARGO_HASH, ALGORITMO).toString("hex");
 
 const userSchema = new mongoose.Schema(
   {
@@ -66,6 +74,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true
     },
+    salt: {
+      type: String,
+      required: true
+    },
     role: {
       type: String,
       enum: { values: ROLES, message: `role inválido. Valores permitidos: ${ROLES.join(", ")}` },
@@ -78,7 +90,7 @@ const userSchema = new mongoose.Schema(
     toJSON: {
       versionKey: false,
       transform: (doc, ret) => {
-        const { _id, passwordHash, ...resto } = ret;
+        const { _id, passwordHash, salt, ...resto } = ret;
         return { id: _id.toString(), ...resto };
       }
     }
@@ -88,6 +100,26 @@ const userSchema = new mongoose.Schema(
 // Borrado lógico. El username y el email de un usuario eliminado siguen
 // reservados (índice único): no se reasigna la identidad de alguien eliminado.
 userSchema.plugin(softDelete);
+
+/**
+ * Genera una sal aleatoria de 16 bytes y el hash de la contraseña con esa sal.
+ * Cada usuario tiene su propia sal: dos contraseñas iguales dan hashes distintos.
+ */
+userSchema.statics.crearPasswordSeguro = function (password) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  return { salt, passwordHash: calcularHash(password, salt) };
+};
+
+/**
+ * Recalcula el hash de la contraseña ingresada con la sal guardada y lo compara
+ * con el hash guardado. timingSafeEqual tarda lo mismo coincida o no, así que el
+ * tiempo de respuesta no da pistas sobre cuántos caracteres coincidieron.
+ */
+userSchema.methods.validarPassword = function (password) {
+  const ingresado = Buffer.from(calcularHash(password, this.salt), "hex");
+  const guardado = Buffer.from(this.passwordHash, "hex");
+  return ingresado.length === guardado.length && crypto.timingSafeEqual(ingresado, guardado);
+};
 
 function conflicto(mensaje) {
   const err = new Error(mensaje);
@@ -129,43 +161,35 @@ userSchema.statics.crear = async function ({ username, name, email, password, ro
     }
   }
 
-  const passwordHash = await bcrypt.hash(password, COSTO_HASH);
+  const { salt, passwordHash } = this.crearPasswordSeguro(password);
   try {
-    return await this.create({ username: usernameNormal, name, email: emailNormal, passwordHash, role });
+    return await this.create({ username: usernameNormal, name, email: emailNormal, passwordHash, salt, role });
   } catch (err) {
     throw conflictoPorDuplicado(err);
   }
 };
 
-/**
- * Comprueba que quitarle a un usuario el rol de superadmin (por baja o por cambio
- * de rol) no deje al sistema sin superadmin, ni lo haga el propio superadmin.
- */
-async function comprobarSuperadmin(Modelo, user, idActor, { propio, ultimo }) {
-  if (user.id === idActor) {
-    throw conflicto(propio);
-  }
+// Quitarle a alguien el rol de superadmin (por baja o por cambio de rol) no puede
+// dejar al sistema sin superadmin.
+async function comprobarNoEsUltimoSuperadmin(Modelo, mensaje) {
   if ((await Modelo.countDocuments({ role: "superadmin" })) <= 1) {
-    throw conflicto(ultimo);
+    throw conflicto(mensaje);
   }
 }
 
 /**
  * Actualiza sólo los campos enviados (name, email, role, password). El username
  * no se modifica: es la identidad del usuario. Devuelve el usuario actualizado,
- * o null si no existe. idActor es el usuario de la sesión que hace el cambio.
+ * o null si no existe.
  */
-userSchema.statics.actualizar = async function (id, { name, email, role, password }, idActor) {
+userSchema.statics.actualizar = async function (id, { name, email, role, password }) {
   const user = await this.findById(id);
   if (!user) {
     return null;
   }
 
   if (role !== undefined && user.role === "superadmin" && role !== "superadmin") {
-    await comprobarSuperadmin(this, user, idActor, {
-      propio: "No podés quitarte el rol de superadmin",
-      ultimo: "No se le puede quitar el rol al último superadmin"
-    });
+    await comprobarNoEsUltimoSuperadmin(this, "No se le puede quitar el rol al último superadmin");
   }
 
   if (email !== undefined) {
@@ -177,7 +201,7 @@ userSchema.statics.actualizar = async function (id, { name, email, role, passwor
   }
   if (name !== undefined) user.name = name;
   if (role !== undefined) user.role = role;
-  if (password !== undefined) user.passwordHash = await bcrypt.hash(password, COSTO_HASH);
+  if (password !== undefined) Object.assign(user, this.crearPasswordSeguro(password));
 
   try {
     return await user.save();
@@ -188,22 +212,16 @@ userSchema.statics.actualizar = async function (id, { name, email, role, passwor
 
 /**
  * Elimina un usuario (borrado lógico). Devuelve el usuario eliminado, o null si
- * no existe. idActor es el usuario de la sesión que lo elimina.
+ * no existe.
  */
-userSchema.statics.eliminar = async function (id, idActor) {
+userSchema.statics.eliminar = async function (id) {
   const user = await this.findById(id);
   if (!user) {
     return null;
   }
 
-  if (user.id === idActor) {
-    throw conflicto("No podés eliminar tu propio usuario");
-  }
   if (user.role === "superadmin") {
-    await comprobarSuperadmin(this, user, idActor, {
-      propio: "No podés eliminar tu propio usuario",
-      ultimo: "No se puede eliminar al último superadmin"
-    });
+    await comprobarNoEsUltimoSuperadmin(this, "No se puede eliminar al último superadmin");
   }
 
   user.deletedAt = new Date();
@@ -224,7 +242,7 @@ userSchema.statics.verificarCredenciales = async function (usuario, password) {
   if (!user) {
     return null;
   }
-  return (await bcrypt.compare(password, user.passwordHash)) ? user : null;
+  return user.validarPassword(password) ? user : null;
 };
 
 const User = mongoose.model("User", userSchema);

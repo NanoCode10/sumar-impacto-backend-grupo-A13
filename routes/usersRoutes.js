@@ -3,15 +3,13 @@ import express from "express";
 import validateId from "../middlewares/validateId.js";
 import { validateUser } from "../middlewares/validateBody.js";
 import { validateUserQuery } from "../middlewares/validateQuery.js";
-import { requireRole } from "../middlewares/auth.js";
 
 import { getUsers, getUserById, createUser, updateUser, deleteUser } from "../controllers/usersController.js";
 
 const router = express.Router();
 
 // Rutas de la API del recurso, montadas en /api/users (ver index.js).
-// Todas sólo para superadmin: es quien gestiona usuarios y asigna roles.
-router.use(requireRole("superadmin"));
+// Sin sesión no hay control de quién las usa: queda para la entrega 3.
 
 router.get("/", validateUserQuery, getUsers);
 router.post("/", validateUser("create"), createUser);

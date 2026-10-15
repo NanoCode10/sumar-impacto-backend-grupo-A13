@@ -76,12 +76,8 @@ async function renderOrganization(req, res, next) {
   try {
     const organization = await Organization.findById(req.params.id);
 
-    // Sin sesión, sólo las aprobadas: igual que la home pública. Para el público,
-    // una organización no aprobada no existe (404).
-    const visible = organization && (req.session.user || organization.status === Organization.APPROVED);
-
     // Es una página HTML: el 404 lo arma el errorHandler con la vista error.pug.
-    if (!visible) {
+    if (!organization) {
       const err = new Error("Organización no encontrada");
       err.statusCode = 404;
       return next(err);

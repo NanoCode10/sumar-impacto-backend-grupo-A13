@@ -7,8 +7,8 @@
  *  - el username se elige en el alta y no se edita (el campo se bloquea);
  *  - la contraseña es obligatoria al crear y opcional al editar: vacía, no se
  *    manda y queda la actual.
- * Las reglas (409: no eliminarse a sí mismo, no dejar el sistema sin superadmin)
- * las resuelve el backend; acá sólo se muestra el mensaje.
+ * La regla del 409 (no dejar el sistema sin superadmin) la resuelve el backend;
+ * acá sólo se muestra el mensaje.
  */
 
 const API = "/api/users";
@@ -84,7 +84,7 @@ async function eliminar(user) {
     mostrarMensaje(`Usuario "${user.username}" eliminado.`, "ok");
     await cargarUsuarios();
   } catch (err) {
-    // Por ejemplo, el 409 de eliminar el propio usuario o el último superadmin.
+    // Por ejemplo, el 409 de eliminar al último superadmin.
     mostrarMensaje(err.message, "error");
   }
 }
