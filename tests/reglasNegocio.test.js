@@ -137,7 +137,7 @@ test("Campaign.crear rechaza una organización no aprobada (409)", async () => {
   const err = await capturarError(Campaign.crear(datosCampania(pendiente.id)));
 
   assert.equal(err.statusCode, 409);
-  assert.equal(err.message, `La organización ${pendiente.id} está en estado pendiente y no puede recibir campañas`);
+  assert.equal(err.message, `La organización «${pendiente.name}» está en estado pendiente y no puede recibir campañas`);
   assert.equal(await Campaign.countDocuments(), 0);
 });
 
@@ -237,7 +237,7 @@ test("Organization.eliminar rechaza una organización con campañas (409)", asyn
   const err = await capturarError(Organization.eliminar(aprobada.id));
 
   assert.equal(err.statusCode, 409);
-  assert.equal(err.message, `La organización ${aprobada.id} tiene 1 campaña(s) y no puede eliminarse`);
+  assert.equal(err.message, `La organización «${aprobada.name}» tiene 1 campaña(s) y no puede eliminarse`);
   assert.ok(await Organization.findById(aprobada.id), "la organización sigue existiendo");
 });
 

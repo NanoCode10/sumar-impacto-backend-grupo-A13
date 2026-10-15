@@ -118,7 +118,7 @@ organizationSchema.statics.eliminar = async function (id) {
 
   const cantidad = await Campaign.countDocuments({ organizationId: id });
   if (cantidad > 0) {
-    const err = new Error(`La organización ${id} tiene ${cantidad} campaña(s) y no puede eliminarse`);
+    const err = new Error(`La organización «${organization.name}» tiene ${cantidad} campaña(s) y no puede eliminarse`);
     err.statusCode = 409;
     throw err;
   }

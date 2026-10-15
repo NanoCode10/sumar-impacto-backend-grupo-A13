@@ -89,7 +89,7 @@ async function comprobarOrganizacion(organizationId) {
   }
 
   if (org.status !== Organization.APPROVED) {
-    const err = new Error(`La organización ${org.id} está en estado ${org.status} y no puede recibir campañas`);
+    const err = new Error(`La organización «${org.name}» está en estado ${org.status} y no puede recibir campañas`);
     err.statusCode = 409;
     throw err;
   }

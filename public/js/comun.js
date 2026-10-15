@@ -62,6 +62,7 @@ function celdaBadge(texto) {
   const td = document.createElement("td");
   const badge = document.createElement("span");
   badge.className = "badge";
+  badge.dataset.estado = texto; // el color lo define layout.pug según el valor
   badge.textContent = texto;
   td.appendChild(badge);
   return td;

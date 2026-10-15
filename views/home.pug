@@ -19,7 +19,7 @@ block content
           a(href=`/organizations/${org.id}`)
             strong= org.name
           span.meta &nbsp;· #{org.type} ·&nbsp;
-          span.badge= org.status
+          span.badge(data-estado=org.status)= org.status
 
   h3.section-title Campañas
   if campaigns.length === 0
@@ -31,4 +31,4 @@ block content
           a(href=`/campaigns/${camp.id}`)
             strong= camp.title
           span.meta &nbsp;· #{camp.organizationId ? camp.organizationId.name : "(organización inexistente)"} ·&nbsp;
-          span.badge= camp.status
+          span.badge(data-estado=camp.status)= camp.status
