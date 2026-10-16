@@ -3,6 +3,9 @@ import esObjectId from "../utils/objectId.js";
 import Organization from "../models/Organization.js";
 import Campaign from "../models/Campaign.js";
 import User from "../models/User.js";
+import Donor from "../models/Donor.js";
+import Donation from "../models/Donation.js";
+import { MEDIOS_PAGO } from "../config/parametros.js";
 
 /**
  * VALIDACIÓN DE LOS PARÁMETROS DE CONSULTA (?type=ONG&status=aprobada)
@@ -85,4 +88,61 @@ function validateUserQuery(req, res, next) {
   next();
 }
 
-export { validateOrganizationQuery, validateCampaignQuery, validateUserQuery };
+function validateDonorQuery(req, res, next) {
+  const filtros = {};
+  const { type, status } = req.query;
+
+  if (type !== undefined) {
+    const valor = canonical(type, Donor.TYPES);
+    if (!valor) {
+      return invalid(res, `type inválido. Valores permitidos: ${Donor.TYPES.join(", ")}`);
+    }
+    filtros.type = valor;
+  }
+
+  if (status !== undefined) {
+    const valor = canonical(status, Donor.STATUSES);
+    if (!valor) {
+      return invalid(res, `status inválido. Valores permitidos: ${Donor.STATUSES.join(", ")}`);
+    }
+    filtros.status = valor;
+  }
+
+  req.filtros = filtros;
+  next();
+}
+
+function validateDonationQuery(req, res, next) {
+  const filtros = {};
+  const { donorId, campaignId, paymentMethod, status } = req.query;
+
+  for (const [field, value] of Object.entries({ donorId, campaignId })) {
+    if (value !== undefined) {
+      if (!esObjectId(value)) {
+        return invalid(res, `${field} debe ser un ObjectId válido (24 caracteres hexadecimales)`);
+      }
+      filtros[field] = value;
+    }
+  }
+
+  if (paymentMethod !== undefined) {
+    const valor = canonical(paymentMethod, MEDIOS_PAGO);
+    if (!valor) {
+      return invalid(res, `paymentMethod inválido. Permitidos: ${MEDIOS_PAGO.join(", ")}`);
+    }
+    filtros.paymentMethod = valor;
+  }
+
+  if (status !== undefined) {
+    const valor = canonical(status, Donation.STATUSES);
+    if (!valor) {
+      return invalid(res, `status inválido. Permitidos: ${Donation.STATUSES.join(", ")}`);
+    }
+    filtros.status = valor;
+  }
+
+  req.filtros = filtros;
+  next();
+}
+
+export { validateOrganizationQuery, validateCampaignQuery, validateUserQuery, validateDonorQuery, validateDonationQuery };

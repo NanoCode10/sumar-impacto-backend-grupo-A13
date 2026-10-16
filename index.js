@@ -9,6 +9,8 @@ import organizationsRoutes from "./routes/organizationsRoutes.js";
 import campaignsRoutes from "./routes/campaignsRoutes.js";
 import usersRoutes from "./routes/usersRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import donorsRoutes from "./routes/donorsRoutes.js";
+import donationsRoutes from "./routes/donationsRoutes.js";
 import viewsRoutes from "./routes/viewsRoutes.js";
 
 import { notFound, errorHandler } from "./middlewares/errors.js";
@@ -38,6 +40,8 @@ app.use("/api/organizations", organizationsRoutes);
 app.use("/api/campaigns", campaignsRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/donors", donorsRoutes);
+app.use("/api/donations", donationsRoutes);
 
 // Páginas HTML con Pug: inicio y fichas de detalle
 app.use("/", viewsRoutes);

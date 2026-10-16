@@ -40,7 +40,7 @@ datos de ejemplo. Los pasos, en orden (el detalle de cada uno está más abajo):
 2. MongoDB Community Server instalado y en ejecución ([Instalación § 3](#3-mongodb-community-server-local)).
 3. Copiar `.env.example` como `.env` (los valores por defecto apuntan a MongoDB local).
 4. Cargar los datos de ejemplo: `npm run seed -- --confirm-db=sumarimpacto`.
-5. Verificar con `npm test` (99 pruebas) y levantar con `npm run dev`.
+5. Verificar con `npm test` (112 pruebas) y levantar con `npm run dev`.
 6. Abrir <http://localhost:3000>. En **Ingresar** se puede probar el login con
    `superadmin` / `superadmin` (ver [Usuarios de prueba](#usuarios-de-prueba)).
 
@@ -83,12 +83,13 @@ La **API** (`/api/...`) responde siempre JSON y las **vistas** (`/`, `/login`,
 
 ```text
 ├── config/
-│   └── db.js                  # conexión a MongoDB (conectarDB)
-├── controllers/               # organizations, campaigns, users, auth y views
+│   ├── db.js                  # conexión a MongoDB (conectarDB)
+│   └── parametros.js          # comisión y gastos de procesamiento
+├── controllers/               # organizations, campaigns, donors, donations, users, auth y views
 ├── data/                      # datos de ejemplo que carga el seed
 ├── docs/images/               # capturas
 ├── middlewares/               # validateId, validateBody, validateQuery, errors
-├── models/                    # Organization, Campaign y User (Mongoose)
+├── models/                    # Organization, Campaign, Donor, Donation y User (Mongoose)
 ├── public/js/                 # JavaScript del navegador (fetch)
 ├── routes/                    # rutas de la API y de las vistas
 ├── scripts/
@@ -267,6 +268,16 @@ Todas las rutas de la API están bajo `/api` y responden siempre JSON.
 | GET    | `/api/campaigns/:id`               | Obtiene una campaña                                             |
 | PUT    | `/api/campaigns/:id`               | Actualiza una campaña                                           |
 | DELETE | `/api/campaigns/:id`               | Elimina una campaña (borrado lógico)                            |
+| GET    | `/api/donors`                     | Lista donantes (filtros opcionales `type` y `status`)           |
+| POST   | `/api/donors`                     | Crea un donante                                                 |
+| GET    | `/api/donors/:id`                 | Obtiene un donante                                              |
+| PUT    | `/api/donors/:id`                 | Actualiza un donante                                            |
+| DELETE | `/api/donors/:id`                 | Elimina un donante (borrado lógico)                             |
+| GET    | `/api/donations`                  | Lista donaciones (filtros por `donorId`, `campaignId`, `paymentMethod`, `status`) |
+| POST   | `/api/donations`                  | Crea una donación y calcula sus importes                        |
+| GET    | `/api/donations/:id`              | Obtiene una donación                                            |
+| PUT    | `/api/donations/:id`              | Actualiza datos permitidos y recalcula sus importes             |
+| DELETE | `/api/donations/:id`              | Anula una donación (borrado lógico)                             |
 | GET    | `/api/users`                       | Lista usuarios (filtro opcional `role`)                         |
 | POST   | `/api/users`                       | Crea un usuario                                                 |
 | GET    | `/api/users/:id`                   | Obtiene un usuario                                              |
@@ -343,9 +354,9 @@ El `DELETE` no borra el documento de la base: le pone la fecha en el campo `dele
 - `GET`, `PUT` o un segundo `DELETE` sobre algo eliminado responden `404`;
 - una campaña eliminada no impide eliminar su organización.
 
-El `status` no cambia al eliminar: es el estado de negocio y queda como estaba, para
-conservar la historia. El filtro se aplica en un solo lugar, el plugin
-`utils/softDelete.js`, que usan los dos modelos.
+En organizaciones y campañas el `status` no cambia al eliminar, para conservar la
+historia. En donantes pasa a `inactivo` y en donaciones a `anulada`. El filtro se aplica
+en un solo lugar, el plugin `utils/softDelete.js`, compartido por los modelos.
 
 ### Ejemplos de consultas
 
@@ -366,13 +377,31 @@ Los valores de los filtros se comparan sin distinguir tildes ni mayúsculas
 
 ### Valores permitidos
 
-Definidos una sola vez en los Models (`models/Organization.js`, `models/Campaign.js` y
-`models/User.js`):
+Definidos una sola vez en los Models y en `config/parametros.js`:
 
 - **Organization `type`**: `ONG`, `fundación`, `comedor`
 - **Organization `status`**: `pendiente`, `aprobada`, `suspendida`, `desvinculada` (por defecto `pendiente`)
 - **Campaign `status`**: `borrador`, `activa`, `suspendida`, `cerrada` (por defecto `borrador`)
+- **Donor `type`**: `individual`, `corporativo`
+- **Donor `status`**: `activo`, `inactivo` (por defecto `activo`)
+- **Donation `paymentMethod`**: `transferencia`, `debito`, `credito`
+- **Donation `status`**: `acreditada`, `anulada` (por defecto `acreditada`)
 - **User `role`**: `superadmin`, `administrador`, `auditoria`, `organizacion` (por defecto `organizacion`)
+
+### Donantes y donaciones
+
+- **Donantes** (`/api/donors`): requieren `name`, `type`, `document` y `email`.
+  `isMember` es opcional (por defecto `false`); el estado inicial es `activo`.
+- **Donaciones** (`/api/donations`): requieren `donorId`, `campaignId`, `grossAmount`
+  (número mayor a cero) y `paymentMethod`. El donante debe existir y estar activo;
+  la campaña debe existir y estar `activa`.
+- La API calcula en el servidor `commission` (3,5 %), `processingFees` y `netAmount`.
+  Las tasas de procesamiento son 1,218 % para transferencia y débito y 2,428 % para
+  crédito. Los valores calculados, el certificado y el estado de alta enviados por el
+  cliente se ignoran; al editar monto o medio de pago se vuelven a calcular los importes.
+- Una donación no puede cambiar de campaña. `DELETE` la marca como `anulada` y aplica
+  borrado lógico; `DELETE` de un donante lo marca `inactivo` y también lo oculta de las
+  consultas normales.
 
 ### Validaciones
 
@@ -382,7 +411,8 @@ La validación tiene dos capas:
    - `validateId.js`: el `:id` de la URL debe ser un ObjectId válido.
    - `validateBody.js`: en POST exige los campos obligatorios; en POST y PUT controla
      los tipos reales del JSON (un número enviado como texto se rechaza), los valores
-     permitidos y el formato del email. Deja en el body el valor canónico (por ejemplo
+     permitidos y el formato del email. Para donantes y donaciones valida sus datos,
+     ids y medios de pago. Deja en el body el valor canónico (por ejemplo
      `"FUNDACION"` → `"fundación"`). Para usuarios controla además el formato del
      username, el largo mínimo de la contraseña (8) y que el username no se edite; para el
      login, que lleguen usuario y contraseña.
@@ -394,6 +424,9 @@ Campos obligatorios al crear:
 - **Organization**: `name` (3 a 100 caracteres), `type`, `email`.
 - **Campaign**: `title` (5 a 120 caracteres), `description`, `targetAmount` (número
   mayor a 0) y `organizationId` (ObjectId en texto).
+- **Donor**: `name` (3 a 100 caracteres), `type`, `document` y `email`.
+- **Donation**: `donorId`, `campaignId` (ObjectId en texto), `grossAmount` (número
+  mayor a 0) y `paymentMethod`.
 - **User**: `username` (3 a 30 caracteres: letras, números, punto, guion o guion bajo),
   `name`, `email` y `password` (8 caracteres como mínimo).
 
@@ -403,15 +436,17 @@ Campos obligatorios al crear:
 | ------ | ------ |
 | `400`  | Id, body o filtro inválidos; JSON mal formado |
 | `401`  | Usuario y contraseña no coinciden (login) |
-| `404`  | La ruta, la organización, la campaña o el usuario no existen; la campaña referencia una organización inexistente |
+| `404`  | La ruta, la organización, la campaña, el donante, la donación o el usuario no existen |
 | `409`  | Se intenta crear una campaña, o moverla a otra organización, y la organización no está `aprobada` |
+| `409`  | Donante inactivo, campaña no activa al donar o intento de cambiar una donación de campaña |
 | `409`  | Se intenta eliminar una organización que todavía tiene campañas vigentes |
 | `409`  | Username o email ya usados; eliminar o degradar al último superadmin |
 | `500`  | Error inesperado (mensaje genérico, sin detalles internos) |
 
 Las reglas de negocio están en los Models, en métodos propios:
 `Campaign.crear`, `Campaign.actualizar`, `Campaign.eliminar`, `Organization.eliminar`,
-`User.crear`, `User.actualizar` y `User.eliminar`.
+`Donor.crear`, `Donor.actualizar`, `Donor.eliminar`, `Donation.crear`,
+`Donation.actualizar`, `Donation.anular`, `User.crear`, `User.actualizar` y `User.eliminar`.
 
 `middlewares/errors.js` centraliza las respuestas: en la API responde JSON
 (`{ "error": "..." }`) y en las vistas muestra la página `error.pug`.
@@ -455,8 +490,8 @@ que ejecuta `node --test`. El corredor nativo descubre solo todos los archivos
 Resultado actual:
 
 ```text
-tests 99
-pass 99
+tests 112
+pass 112
 fail 0
 ```
 
@@ -465,8 +500,9 @@ fail 0
 | `validateId.test.js` | 10 | Ids ObjectId válidos e inválidos y la delegación del error con `next(err)` |
 | `validateOrganization.test.js` | 17 | Campos obligatorios, tipos, valores permitidos y normalización de organizaciones |
 | `validateCampaigns.test.js` | 26 | Campos obligatorios, tipos reales, `organizationId` y valores permitidos de campañas |
+| `validateDonorsDonations.test.js` | 5 | Validación de donantes, donaciones y filtros |
 | `validateUser.test.js` | 14 | Validación del alta, la edición y el filtro de usuarios, y del login |
-| `reglasNegocio.test.js` | 32 | Reglas 404/409, schemas, actualizaciones parciales, filtros, borrado lógico y usuarios (hash con sal, alta, login, edición, baja y regla del último superadmin) contra MongoDB |
+| `reglasNegocio.test.js` | 40 | Reglas 404/409, schemas, actualizaciones parciales, filtros, borrado lógico, usuarios y donaciones contra MongoDB |
 
 ### Bases de desarrollo y de pruebas
 

@@ -3,6 +3,8 @@ import esObjectId from "../utils/objectId.js";
 import Organization from "../models/Organization.js";
 import Campaign from "../models/Campaign.js";
 import User from "../models/User.js";
+import Donor from "../models/Donor.js";
+import { MEDIOS_PAGO } from "../config/parametros.js";
 
 /**
  * VALIDACIÓN DE LOS DATOS QUE MANDA EL CLIENTE
@@ -155,6 +157,107 @@ function validateCampaign(mode) {
   };
 }
 
+function validateDonor(mode) {
+  return (req, res, next) => {
+    const body = req.body ?? {};
+
+    if (mode === "create") {
+      const missing = missingFields(body, ["name", "type", "document", "email"]);
+      if (missing.length > 0) {
+        return invalid(res, `Faltan campos obligatorios: ${missing.join(", ")}`);
+      }
+    }
+
+    if (body.name !== undefined) {
+      if (typeof body.name !== "string") {
+        return invalid(res, "name debe ser un texto de 3 a 100 caracteres");
+      }
+      const name = body.name.trim();
+      if (name.length < 3 || name.length > 100) {
+        return invalid(res, "name debe ser un texto de 3 a 100 caracteres");
+      }
+      body.name = name;
+    }
+
+    if (body.type !== undefined) {
+      const type = typeof body.type === "string" && canonical(body.type, Donor.TYPES);
+      if (!type) {
+        return invalid(res, `type inválido. Valores permitidos: ${Donor.TYPES.join(", ")}`);
+      }
+      body.type = type;
+    }
+
+    if (body.document !== undefined) {
+      if (typeof body.document !== "string" || body.document.trim().length === 0) {
+        return invalid(res, "document debe ser un texto no vacío");
+      }
+      body.document = body.document.trim();
+    }
+
+    if (body.email !== undefined) {
+      if (typeof body.email !== "string") {
+        return invalid(res, "email debe ser un texto");
+      }
+      const email = body.email.trim();
+      if (!EMAIL.test(email)) {
+        return invalid(res, "email no tiene un formato válido");
+      }
+      body.email = email;
+    }
+
+    if (body.isMember !== undefined && typeof body.isMember !== "boolean") {
+      return invalid(res, "isMember debe ser un booleano");
+    }
+
+    if (body.status !== undefined) {
+      const status = typeof body.status === "string" && canonical(body.status, Donor.STATUSES);
+      if (!status) {
+        return invalid(res, `status inválido. Valores permitidos: ${Donor.STATUSES.join(", ")}`);
+      }
+      body.status = status;
+    }
+
+    req.body = body;
+    next();
+  };
+}
+
+function validateDonation(mode) {
+  return (req, res, next) => {
+    const body = req.body ?? {};
+
+    if (mode === "create") {
+      const missing = missingFields(body, ["donorId", "campaignId", "grossAmount", "paymentMethod"]);
+      if (missing.length > 0) {
+        return invalid(res, `Faltan campos obligatorios: ${missing.join(", ")}`);
+      }
+    }
+
+    for (const field of ["donorId", "campaignId"]) {
+      if (body[field] !== undefined && !esObjectId(body[field])) {
+        return invalid(res, `${field} debe ser un ObjectId válido (24 caracteres hexadecimales)`);
+      }
+    }
+
+    if (body.grossAmount !== undefined) {
+      if (typeof body.grossAmount !== "number" || !Number.isFinite(body.grossAmount) || body.grossAmount <= 0) {
+        return invalid(res, "grossAmount debe ser un número mayor a 0");
+      }
+    }
+
+    if (body.paymentMethod !== undefined) {
+      const paymentMethod = typeof body.paymentMethod === "string" && canonical(body.paymentMethod, MEDIOS_PAGO);
+      if (!paymentMethod) {
+        return invalid(res, `paymentMethod inválido. Permitidos: ${MEDIOS_PAGO.join(", ")}`);
+      }
+      body.paymentMethod = paymentMethod;
+    }
+
+    req.body = body;
+    next();
+  };
+}
+
 // Largo mínimo de la contraseña. Se valida acá porque el modelo sólo recibe el hash.
 const PASSWORD_MIN = 8;
 
@@ -240,4 +343,4 @@ function validateLogin(req, res, next) {
   next();
 }
 
-export { validateOrganization, validateCampaign, validateUser, validateLogin };
+export { validateOrganization, validateCampaign, validateDonor, validateDonation, validateUser, validateLogin };
