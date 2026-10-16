@@ -4,9 +4,6 @@ block content
   .card
     h2 Organización: #{organization.name}
     .field
-      .field-label ID
-      .field-value= organization.id
-    .field
       .field-label Nombre
       .field-value= organization.name
     .field
@@ -18,4 +15,4 @@ block content
     .field
       .field-label Estado
       .field-value
-        span.badge= organization.status
+        span.badge(data-estado=organization.status)= organization.status

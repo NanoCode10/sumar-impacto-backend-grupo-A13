@@ -4,6 +4,10 @@ block content
   .card
     h2 Bienvenido a SumarImpacto
     p Plataforma de gestión de campañas solidarias para organizaciones sociales.
+    p
+      a(href="/organizations") Gestionar organizaciones
+      | &nbsp;·&nbsp;
+      a(href="/campaigns") Gestionar campañas
 
   h3.section-title Organizaciones
   if organizations.length === 0
@@ -15,7 +19,7 @@ block content
           a(href=`/organizations/${org.id}`)
             strong= org.name
           span.meta &nbsp;· #{org.type} ·&nbsp;
-          span.badge= org.status
+          span.badge(data-estado=org.status)= org.status
 
   h3.section-title Campañas
   if campaigns.length === 0
@@ -26,5 +30,5 @@ block content
         li.resource-item
           a(href=`/campaigns/${camp.id}`)
             strong= camp.title
-          span.meta &nbsp;· Org ##{camp.organizationId} ·&nbsp;
-          span.badge= camp.status
+          span.meta &nbsp;· #{camp.organizationId ? camp.organizationId.name : "(organización inexistente)"} ·&nbsp;
+          span.badge(data-estado=camp.status)= camp.status

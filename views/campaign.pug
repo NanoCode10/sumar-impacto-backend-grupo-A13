@@ -4,11 +4,12 @@ block content
   .card
     h2 Campaña: #{campaign.title}
     .field
-      .field-label ID
-      .field-value= campaign.id
-    .field
-      .field-label ID de Organización
-      .field-value= campaign.organizationId
+      .field-label Organización
+      .field-value
+        if campaign.organizationId
+          a(href=`/organizations/${campaign.organizationId._id}`)= campaign.organizationId.name
+        else
+          | (organización inexistente)
     .field
       .field-label Título
       .field-value= campaign.title
@@ -21,4 +22,4 @@ block content
     .field
       .field-label Estado
       .field-value
-        span.badge= campaign.status
+        span.badge(data-estado=campaign.status)= campaign.status

@@ -17,4 +17,4 @@ const norm = (value) =>
     .toLowerCase()
     .trim();
 
-module.exports = norm;
+export default norm;

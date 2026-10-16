@@ -1,177 +1,138 @@
-const fs = require("fs");
-const path = require("path");
+import mongoose from "mongoose";
 
-const norm = require("../utils/norm");
-
-const dataPath = path.join(__dirname, "..", "data", "organizations.json");
+// Import circular: Campaign también importa Organization. Funciona porque los
+// dos modelos sólo se usan entre sí DENTRO de los métodos, nunca al cargar el
+// módulo. No usar Campaign en código de nivel superior.
+import Campaign from "./Campaign.js";
+import softDelete from "../utils/softDelete.js";
 
 /**
- * RESPONSABILIDAD DE LA CLASE
- * Organization es el Model del dominio "organización". Se encarga de:
- *  - representar una organización en memoria (constructor);
- *  - leer y escribir la persistencia en data/organizations.json;
- *  - ofrecer métodos estáticos de acceso a datos (findById, findAll, create, update, delete).
- * La capa de rutas/controllers NO debe leer el JSON directamente: siempre pasa por este Model.
+ * MODELO Organization (Mongoose)
+ * El schema define los campos, sus tipos y sus validaciones; MongoDB guarda cada
+ * organización como un documento de la colección "organizations".
  *
- * ATRIBUTOS DE UNA INSTANCIA
- *  - id     {number}  Identificador único. Lo genera el servidor, nunca el cliente.
- *  - name   {string}  Nombre de la organización.
- *  - type   {string}  Tipo/categoría de la organización (ver Organization.TYPES).
- *  - email  {string}  Email de contacto.
- *  - status {string}  Estado de la organización (ver Organization.STATUSES).
+ * Es la segunda capa de validación: la primera es middlewares/validateBody.js,
+ * que corre antes del controller y arma los mensajes de error de la API.
  *
- * ESTADO DE LOS MÉTODOS
- *  - constructor  -> IMPLEMENTADO y funcionando.
- *  - findById     -> IMPLEMENTADO y funcionando (solo lectura).
- *  - findAll      -> IMPLEMENTADO y funcionando.
- *  - create       -> IMPLEMENTADO y funcionando.
- *  - update       -> IMPLEMENTADO y funcionando.
- *  - delete       -> IMPLEMENTADO y funcionando.
+ * MÉTODOS
+ *  - Propios (en español), con las reglas de negocio:
+ *      buscarTodas(filtros), actualizar(id, datos), eliminar(id).
+ *  - De Mongoose, usados tal cual donde no hay reglas: findById, create.
+ * Los errores de negocio se lanzan como Error con statusCode (el Model no tiene
+ * res); el controller los delega al errorHandler.
  */
-class Organization {
-  /**
-   * Valores permitidos del dominio. Se escriben acá una sola vez y el resto del
-   * código los referencia (middlewares/validateBody.js y validateQuery.js), para que no convivan dos
-   * grafías del mismo valor.
-   */
-  static TYPES = ["ONG", "fundación", "comedor"];
-  static STATUSES = ["pendiente", "aprobada", "suspendida", "baja"];
 
-  /** Único estado que habilita a tener campañas. Se referencia desde Campaign. */
-  static APPROVED = "aprobada";
+// Valores permitidos del dominio. Se definen una sola vez y el resto del código
+// los referencia (validateBody, validateQuery, vistas).
+const TYPES = ["ONG", "fundación", "comedor"];
+const STATUSES = ["pendiente", "aprobada", "suspendida", "desvinculada"];
 
-  constructor(id, name, type, email, status) {
-    this.id = id;
-    this.name = name;
-    this.type = type;
-    this.email = email;
-    this.status = status;
+// Único estado que habilita a tener campañas. Se referencia desde Campaign.
+const APPROVED = "aprobada";
+
+// Formato de email. Lo usa también validateBody.
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const organizationSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "name es obligatorio"],
+      trim: true,
+      minlength: [3, "name debe ser un texto de 3 a 100 caracteres"],
+      maxlength: [100, "name debe ser un texto de 3 a 100 caracteres"]
+    },
+    type: {
+      type: String,
+      required: [true, "type es obligatorio"],
+      enum: { values: TYPES, message: `type inválido. Valores permitidos: ${TYPES.join(", ")}` }
+    },
+    email: {
+      type: String,
+      required: [true, "email es obligatorio"],
+      trim: true,
+      lowercase: true,
+      match: [EMAIL, "email no tiene un formato válido"]
+    },
+    status: {
+      type: String,
+      enum: { values: STATUSES, message: `status inválido. Valores permitidos: ${STATUSES.join(", ")}` },
+      default: "pendiente"
+    }
+  },
+  {
+    // Agrega y mantiene automáticamente createdAt y updatedAt en cada documento.
+    timestamps: true,
+    // Cómo se convierte a JSON en las respuestas de la API: "id" como texto en
+    // lugar de "_id", y sin "__v" (versión interna de Mongoose).
+    toJSON: {
+      versionKey: false,
+      transform: (doc, ret) => {
+        const { _id, ...resto } = ret;
+        return { id: _id.toString(), ...resto };
+      }
+    }
+  }
+);
+
+// Borrado lógico: campo deletedAt y filtro automático en todas las consultas.
+organizationSchema.plugin(softDelete);
+
+// Deja sólo los campos que vinieron: en un PUT los demás no se tocan.
+const soloDefinidos = (datos) =>
+  Object.fromEntries(Object.entries(datos).filter(([, valor]) => valor !== undefined));
+
+/**
+ * Organizaciones ordenadas por fecha de alta. Sin filtros, todas.
+ * Los filtros ya llegan validados y con el valor canónico (validateQuery), así
+ * que se comparan tal cual contra lo guardado.
+ * @param {{type?: string, status?: string}} filtros
+ */
+organizationSchema.statics.buscarTodas = function (filtros = {}) {
+  return this.find(filtros).sort({ _id: 1 });
+};
+
+/**
+ * Actualiza sólo los campos enviados. Devuelve la organización actualizada, o
+ * null si no existe.
+ */
+organizationSchema.statics.actualizar = function (id, datos) {
+  // returnDocument: "after" devuelve el documento ya actualizado (en Mongoose 9
+  // reemplaza a la opción new: true, que quedó deprecada). runValidators aplica
+  // las validaciones del schema también en la actualización.
+  return this.findByIdAndUpdate(id, soloDefinidos(datos), { returnDocument: "after", runValidators: true });
+};
+
+/**
+ * Elimina una organización (borrado lógico). Devuelve la organización eliminada,
+ * o null si no existe o ya estaba eliminada.
+ * Regla de negocio: una organización con campañas vigentes no se elimina (409),
+ * porque esas campañas quedarían apuntando a una organización que ya no existe.
+ * Las campañas eliminadas no cuentan: el middleware de Campaign las excluye.
+ */
+organizationSchema.statics.eliminar = async function (id) {
+  const organization = await this.findById(id);
+  if (!organization) {
+    return null;
   }
 
-  static findById(id) {
-    const rawData = fs.readFileSync(dataPath, "utf-8");
-    const organizations = JSON.parse(rawData);
-
-    const found = organizations.find((org) => org.id === id);
-
-    if (!found) {
-      return null;
-    }
-
-    return new Organization(found.id, found.name, found.type, found.email, found.status);
+  const cantidad = await Campaign.countDocuments({ organizationId: id });
+  if (cantidad > 0) {
+    const err = new Error(`La organización «${organization.name}» tiene ${cantidad} campaña(s) y no puede eliminarse`);
+    err.statusCode = 409;
+    throw err;
   }
 
-  /**
-   * Devuelve las organizaciones como array de instancias de Organization.
-   * Sin filtros, todas. Con filtros, sólo las que coinciden.
-   *
-   * El filtrado vive acá, en la capa de datos, y no en el controller: cuando los
-   * datos salgan de MongoDB esto se convierte en una query que resuelve la base,
-   * y el cambio queda contenido en este archivo.
-   *
-   * @param {{type?: string, status?: string}} filtros
-   */
-  static findAll(filtros = {}) {
-    const rawData = fs.readFileSync(dataPath, "utf-8");
-    let organizations = JSON.parse(rawData);
+  organization.deletedAt = new Date();
+  await organization.save();
+  return organization;
+};
 
-    // norm() de los dos lados: "?type=fundacion" encuentra "fundación".
-    if (filtros.type !== undefined) {
-      organizations = organizations.filter((org) => norm(org.type) === norm(filtros.type));
-    }
+const Organization = mongoose.model("Organization", organizationSchema);
 
-    if (filtros.status !== undefined) {
-      organizations = organizations.filter((org) => norm(org.status) === norm(filtros.status));
-    }
+Organization.TYPES = TYPES;
+Organization.STATUSES = STATUSES;
+Organization.APPROVED = APPROVED;
+Organization.EMAIL = EMAIL;
 
-    return organizations.map(
-      (org) => new Organization(org.id, org.name, org.type, org.email, org.status)
-    );
-  }
-
-  /**
-   * Crea una nueva organización, la persiste y devuelve el recurso creado.
-   * @param {{name: string, type: string, email: string, status: string}} data
-   */
-  static create(data) {
-    const rawData = fs.readFileSync(dataPath, "utf-8");
-    const organizations = JSON.parse(rawData);
-
-    const maxId = organizations.reduce((max, org) => (org.id > max ? org.id : max), 0);
-    const newId = maxId + 1;
-
-    const newOrg = new Organization(
-      newId,
-      data.name,
-      data.type,
-      data.email,
-      data.status || "pendiente"
-    );
-
-    organizations.push(newOrg);
-    fs.writeFileSync(dataPath, JSON.stringify(organizations, null, 2), "utf-8");
-
-    return newOrg;
-  }
-
-  /**
-   * Actualiza los campos permitidos de una organización existente.
-   * @param {number} id
-   * @param {{name?: string, type?: string, email?: string, status?: string}} data
-   * @returns {Organization|null} la organización actualizada, o null si no existe.
-   */
-  static update(id, data) {
-    const rawData = fs.readFileSync(dataPath, "utf-8");
-    const organizations = JSON.parse(rawData);
-
-    const index = organizations.findIndex((org) => org.id === id);
-    if (index === -1) {
-      return null;
-    }
-
-    if (data.name !== undefined) organizations[index].name = data.name;
-    if (data.type !== undefined) organizations[index].type = data.type;
-    if (data.email !== undefined) organizations[index].email = data.email;
-    if (data.status !== undefined) organizations[index].status = data.status;
-
-    fs.writeFileSync(dataPath, JSON.stringify(organizations, null, 2), "utf-8");
-
-    const updated = organizations[index];
-    return new Organization(updated.id, updated.name, updated.type, updated.email, updated.status);
-  }
-
-  /**
-   * Elimina una organización.
-   * Lanza un error con statusCode 409 si la organización tiene campañas asociadas.
-   * @param {number} id
-   */
-  static delete(id) {
-    const rawData = fs.readFileSync(dataPath, "utf-8");
-    const organizations = JSON.parse(rawData);
-
-    const index = organizations.findIndex((org) => org.id === id);
-    if (index === -1) {
-      return null;
-    }
-
-    // Regla de negocio: una organización con campañas no se elimina, porque esas
-    // campañas quedarían apuntando a un id que ya no existe. Import diferido,
-    // igual que en Campaign, para no crear un ciclo entre los dos modelos.
-    const Campaign = require("./Campaign");
-    const campanias = Campaign.findAll().filter((campania) => campania.organizationId === id);
-    if (campanias.length > 0) {
-      const err = new Error(
-        `La organización ${id} tiene ${campanias.length} campaña(s) y no puede eliminarse`
-      );
-      err.statusCode = 409;
-      throw err;
-    }
-
-    const [deletedOrg] = organizations.splice(index, 1);
-    fs.writeFileSync(dataPath, JSON.stringify(organizations, null, 2), "utf-8");
-
-    return new Organization(deletedOrg.id, deletedOrg.name, deletedOrg.type, deletedOrg.email, deletedOrg.status);
-  }
-}
-
-module.exports = Organization;
+export default Organization;

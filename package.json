@@ -3,13 +3,17 @@
   "version": "1.0.0",
   "description": "TP1 Desarrollo de Sistemas Web Back End - IFTS 29 - Grupo A13",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "mongoose": "^9.11.2",
     "pug": "^3.0.4"
   },
   "devDependencies": {

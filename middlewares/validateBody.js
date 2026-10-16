@@ -1,6 +1,10 @@
-const norm = require("../utils/norm");
-const Organization = require("../models/Organization");
-const Campaign = require("../models/Campaign");
+import norm from "../utils/norm.js";
+import esObjectId from "../utils/objectId.js";
+import Organization from "../models/Organization.js";
+import Campaign from "../models/Campaign.js";
+import User from "../models/User.js";
+import Donor from "../models/Donor.js";
+import { MEDIOS_PAGO } from "../config/parametros.js";
 
 /**
  * VALIDACIÓN DE LOS DATOS QUE MANDA EL CLIENTE
@@ -16,11 +20,12 @@ const Campaign = require("../models/Campaign");
  *  - "update" (PUT): sólo valida los campos que vinieron en el body.
  *
  * Además deja en req.body el VALOR CANÓNICO de cada lista (el de la lista, con
- * su tilde), no lo que escribió el cliente: así en data/*.json hay una sola
+ * su tilde), no lo que escribió el cliente: así en la base hay una sola
  * grafía de cada valor.
  */
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// El formato de email se define una sola vez, en el modelo (también lo usa el schema).
+const EMAIL = Organization.EMAIL;
 
 const canonical = (value, allowed) => allowed.find((item) => norm(item) === norm(value));
 
@@ -139,10 +144,11 @@ function validateCampaign(mode) {
       }
     }
 
+    // organizationId es el id de una organización: un ObjectId que llega como texto.
+    // Que la organización exista y esté aprobada lo decide el modelo (404/409).
     if (body.organizationId !== undefined) {
-      const organizationId = body.organizationId;
-      if (typeof organizationId !== "number" || !Number.isInteger(organizationId) || organizationId <= 0) {
-        return invalid(res, "organizationId debe ser un número entero positivo");
+      if (!esObjectId(body.organizationId)) {
+        return invalid(res, "organizationId debe ser un ObjectId válido (24 caracteres hexadecimales)");
       }
     }
 
@@ -159,4 +165,190 @@ function validateCampaign(mode) {
   };
 }
 
-module.exports = { validateOrganization, validateCampaign };
+function validateDonor(mode) {
+  return (req, res, next) => {
+    const body = req.body ?? {};
+
+    if (mode === "create") {
+      const missing = missingFields(body, ["name", "type", "document", "email"]);
+      if (missing.length > 0) {
+        return invalid(res, `Faltan campos obligatorios: ${missing.join(", ")}`);
+      }
+    }
+
+    if (body.name !== undefined) {
+      if (typeof body.name !== "string") {
+        return invalid(res, "name debe ser un texto de 3 a 100 caracteres");
+      }
+      const name = body.name.trim();
+      if (name.length < 3 || name.length > 100) {
+        return invalid(res, "name debe ser un texto de 3 a 100 caracteres");
+      }
+      body.name = name;
+    }
+
+    if (body.type !== undefined) {
+      const type = typeof body.type === "string" && canonical(body.type, Donor.TYPES);
+      if (!type) {
+        return invalid(res, `type inválido. Valores permitidos: ${Donor.TYPES.join(", ")}`);
+      }
+      body.type = type;
+    }
+
+    if (body.document !== undefined) {
+      if (typeof body.document !== "string" || body.document.trim().length === 0) {
+        return invalid(res, "document debe ser un texto no vacío");
+      }
+      body.document = body.document.trim();
+    }
+
+    if (body.email !== undefined) {
+      if (typeof body.email !== "string") {
+        return invalid(res, "email debe ser un texto");
+      }
+      const email = body.email.trim();
+      if (!EMAIL.test(email)) {
+        return invalid(res, "email no tiene un formato válido");
+      }
+      body.email = email;
+    }
+
+    if (body.isMember !== undefined && typeof body.isMember !== "boolean") {
+      return invalid(res, "isMember debe ser un booleano");
+    }
+
+    if (body.status !== undefined) {
+      const status = typeof body.status === "string" && canonical(body.status, Donor.STATUSES);
+      if (!status) {
+        return invalid(res, `status inválido. Valores permitidos: ${Donor.STATUSES.join(", ")}`);
+      }
+      body.status = status;
+    }
+
+    req.body = body;
+    next();
+  };
+}
+
+function validateDonation(mode) {
+  return (req, res, next) => {
+    const body = req.body ?? {};
+
+    if (mode === "create") {
+      const missing = missingFields(body, ["donorId", "campaignId", "grossAmount", "paymentMethod"]);
+      if (missing.length > 0) {
+        return invalid(res, `Faltan campos obligatorios: ${missing.join(", ")}`);
+      }
+    }
+
+    for (const field of ["donorId", "campaignId"]) {
+      if (body[field] !== undefined && !esObjectId(body[field])) {
+        return invalid(res, `${field} debe ser un ObjectId válido (24 caracteres hexadecimales)`);
+      }
+    }
+
+    if (body.grossAmount !== undefined) {
+      if (typeof body.grossAmount !== "number" || !Number.isFinite(body.grossAmount) || body.grossAmount <= 0) {
+        return invalid(res, "grossAmount debe ser un número mayor a 0");
+      }
+    }
+
+    if (body.paymentMethod !== undefined) {
+      const paymentMethod = typeof body.paymentMethod === "string" && canonical(body.paymentMethod, MEDIOS_PAGO);
+      if (!paymentMethod) {
+        return invalid(res, `paymentMethod inválido. Permitidos: ${MEDIOS_PAGO.join(", ")}`);
+      }
+      body.paymentMethod = paymentMethod;
+    }
+
+    req.body = body;
+    next();
+  };
+}
+
+// Largo mínimo de la contraseña. Se valida acá porque el modelo sólo recibe el hash.
+const PASSWORD_MIN = 8;
+
+function validateUser(mode) {
+  return (req, res, next) => {
+    const body = req.body ?? {};
+
+    if (mode === "create") {
+      const missing = missingFields(body, ["username", "name", "email", "password"]);
+      if (missing.length > 0) {
+        return invalid(res, `Faltan campos obligatorios: ${missing.join(", ")}`);
+      }
+    }
+
+    // El username es la identidad del usuario: se elige en el alta y no se edita.
+    if (mode === "update" && body.username !== undefined) {
+      return invalid(res, "username no se puede modificar");
+    }
+
+    if (body.username !== undefined) {
+      const username = typeof body.username === "string" && body.username.trim().toLowerCase();
+      if (!username || !User.USERNAME.test(username)) {
+        return invalid(res, "username debe tener de 3 a 30 caracteres: letras, números, punto, guion o guion bajo");
+      }
+      body.username = username;
+    }
+
+    // name y email: mismo criterio que en validateOrganization.
+    if (body.name !== undefined) {
+      if (typeof body.name !== "string") {
+        return invalid(res, "name debe ser un texto de 3 a 100 caracteres");
+      }
+      const name = body.name.trim();
+      if (name.length < 3 || name.length > 100) {
+        return invalid(res, "name debe ser un texto de 3 a 100 caracteres");
+      }
+      body.name = name;
+    }
+
+    if (body.email !== undefined) {
+      if (typeof body.email !== "string") {
+        return invalid(res, "email debe ser un texto");
+      }
+      const email = body.email.trim();
+      if (!EMAIL.test(email)) {
+        return invalid(res, "email no tiene un formato válido");
+      }
+      body.email = email;
+    }
+
+    // La contraseña no se recorta: un espacio puede ser parte de ella.
+    if (body.password !== undefined) {
+      if (typeof body.password !== "string" || body.password.length < PASSWORD_MIN) {
+        return invalid(res, `password debe ser un texto de al menos ${PASSWORD_MIN} caracteres`);
+      }
+    }
+
+    if (body.role !== undefined) {
+      const role = typeof body.role === "string" && canonical(body.role, User.ROLES);
+      if (!role) {
+        return invalid(res, `role inválido. Valores permitidos: ${User.ROLES.join(", ")}`);
+      }
+      body.role = role;
+    }
+
+    req.body = body;
+    next();
+  };
+}
+
+// Login: usuario (username o email) y contraseña, los dos textos no vacíos. No se
+// controla el largo: una contraseña corta recibe el mismo 401 que una incorrecta.
+function validateLogin(req, res, next) {
+  const body = req.body ?? {};
+  const missing = missingFields(body, ["usuario", "password"]);
+  if (missing.length > 0) {
+    return invalid(res, `Faltan campos obligatorios: ${missing.join(", ")}`);
+  }
+  if (typeof body.usuario !== "string" || typeof body.password !== "string") {
+    return invalid(res, "usuario y password deben ser textos");
+  }
+  req.body = body;
+  next();
+}
+
+export { validateOrganization, validateCampaign, validateDonor, validateDonation, validateUser, validateLogin };

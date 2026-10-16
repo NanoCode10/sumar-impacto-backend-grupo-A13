@@ -1,5 +1,5 @@
-const Organization = require("../models/Organization");
-const Campaign = require("../models/Campaign");
+import Organization from "../models/Organization.js";
+import Campaign from "../models/Campaign.js";
 
 /**
  * RESPONSABILIDAD DE ESTE CONTROLLER
@@ -14,10 +14,24 @@ const Campaign = require("../models/Campaign");
 /**
  * GET /  -> página de inicio con el listado de organizaciones y campañas.
  */
-function renderHome(req, res) {
-  const organizations = Organization.findAll();
-  const campaigns = Campaign.findAll();
-  res.render("home", { title: "SumarImpacto", organizations, campaigns });
+async function renderHome(req, res, next) {
+  try {
+    const organizations = await Organization.buscarTodas();
+    // Igual que el detalle de campaña: la página muestra el nombre de la organización.
+    const campaigns = await Campaign.buscarTodas().populate("organizationId", "name");
+
+    res.render("home", { title: "SumarImpacto", organizations, campaigns });
+  } catch (err) {
+    next(err);
+  }
 }
 
-module.exports = { renderHome };
+/**
+ * GET /login  -> formulario de ingreso. Verifica usuario y contraseña contra la
+ * API (public/js/login.js) y muestra el resultado; no crea sesión.
+ */
+function renderLogin(req, res) {
+  res.render("login", { title: "Ingresar - SumarImpacto" });
+}
+
+export { renderHome, renderLogin };
