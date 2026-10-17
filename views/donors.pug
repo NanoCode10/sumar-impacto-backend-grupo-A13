@@ -1,0 +1,59 @@
+extends layout
+
+block content
+  .card
+    h2 Gestión de donantes
+    p La tabla se carga y se actualiza con fetch() contra la API, sin recargar la página.
+
+    form#donor-form
+      h3#form-titulo Nuevo donante
+      input#id(type="hidden", name="id") 
+      //- esto del id es para cuando se edita, para saber qué donante se está editando
+
+      label(for="name") Nombre:
+      input#name(type="text", name="name", required, minlength="3", maxlength="100")
+    
+      label(for="type") Tipo de donante:
+      select#type(type="hidden", name="type")
+        option(value="individual") Individual
+        option(value="corporativo") Corporativo
+
+      label(for="document") Documento (DNI, CUIT, etc.):"
+      input#document(type="text", name="document", required, minlength="8", maxlength="11")
+      //- ver si tiene constraints en mongoose o algo
+
+      label(for="email") Email:
+      input#email(type="email", name="email", required)
+
+      .checkbox-field
+        input#isMember(type="checkbox", name="isMember", checked=false)
+        label(for="isMember") ¿Es miembro? (S/N)
+
+      .acciones
+        button(type="submit") Guardar
+        button#btn-cancelar(type="button", hidden) Cancelar edición
+
+    p#mensaje(role="status")
+
+  h3.section-title Donantes
+  table.tabla
+    thead
+      tr
+        th Nombre
+        th Tipo
+        th Documento
+        th Email
+        th Miembro
+        th Estado
+    tbody#donor-tbody
+      tr
+        td(colspan="6") Cargando...
+
+  script(src="/js/comun.js")
+  script(src="/js/donors.js")
+
+  
+
+
+  p
+    a(href="/") Volver al inicio

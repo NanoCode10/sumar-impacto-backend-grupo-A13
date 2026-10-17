@@ -56,4 +56,13 @@ async function deleteDonor(req, res, next) {
   }
 }
 
-export { getDonors, getDonorById, createDonor, updateDonor, deleteDonor };
+
+function renderDonors(req, res) {
+  res.render("donors", {
+    title: "Donantes - SumarImpacto"
+    //type: Donor.TYPES
+  });
+}
+
+
+export { getDonors, getDonorById, createDonor, updateDonor, deleteDonor, renderDonors };
