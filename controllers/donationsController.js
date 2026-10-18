@@ -1,4 +1,5 @@
 import Donation from "../models/Donation.js";
+import { MEDIOS_PAGO } from "../config/parametros.js";
 
 async function getDonations(req, res, next) {
   try {
@@ -56,4 +57,11 @@ async function deleteDonation(req, res, next) {
   }
 }
 
-export { getDonations, getDonationById, createDonation, updateDonation, deleteDonation };
+function renderDonations(req, res) {
+  res.render("donations", {
+    title: "Donaciones - SumarImpacto",
+    paymentMethods: MEDIOS_PAGO
+  });
+}
+
+export { getDonations, getDonationById, createDonation, updateDonation, deleteDonation, renderDonations };

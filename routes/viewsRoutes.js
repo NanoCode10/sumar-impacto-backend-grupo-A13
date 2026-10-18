@@ -6,6 +6,7 @@ import { renderOrganization, renderOrganizations } from "../controllers/organiza
 import { renderCampaign, renderCampaigns } from "../controllers/campaignsController.js";
 import { renderUsers } from "../controllers/usersController.js";
 import { renderDonors } from "../controllers/donorsController.js";
+import { renderDonations } from "../controllers/donationsController.js";
 /**
  * Páginas HTML generadas con Pug. Son las únicas rutas que usan res.render;
  * la API vive bajo /api y siempre responde JSON.
@@ -28,5 +29,6 @@ router.get("/users", renderUsers);
 
 // Pagina de gestion de donantes
 router.get("/donors", renderDonors);
+router.get("/donations", renderDonations);
 
 export default router;

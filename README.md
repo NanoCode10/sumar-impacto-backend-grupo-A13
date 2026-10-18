@@ -461,19 +461,22 @@ Estas rutas no forman parte de la API: devuelven páginas HTML.
 | `/login`             | Verifica usuario (o email) y contraseña y muestra el resultado |
 | `/organizations`     | Gestión de organizaciones |
 | `/campaigns`         | Gestión de campañas |
+| `/donations`         | Gestión de donaciones |
 | `/users`             | Gestión de usuarios |
 | `/organizations/:id` | Detalle de una organización |
 | `/campaigns/:id`     | Detalle de una campaña |
 
 Las páginas de **gestión** cargan los datos desde el navegador con `fetch()` contra la
-API (`public/js/organizations.js`, `public/js/campaigns.js`, `public/js/users.js` y las
-funciones comunes de `public/js/comun.js`):
+API (`public/js/organizations.js`, `public/js/campaigns.js`, `public/js/donations.js`,
+`public/js/users.js` y las funciones comunes de `public/js/comun.js`):
 
 - listar, crear, editar y eliminar sin recargar la página;
 - el mismo formulario sirve para alta y edición;
 - los errores de la API (400, 404, 409) se muestran en pantalla;
 - en campañas, el selector muestra todas las organizaciones con su estado; si se elige
   una que no está aprobada, la API responde `409` y se muestra el mensaje.
+- en donaciones, sólo se ofrecen donantes activos y campañas activas para el alta; al editar,
+  la campaña queda fija y la anulación usa el borrado lógico de la API.
 
 ## Testing automatizado
 
