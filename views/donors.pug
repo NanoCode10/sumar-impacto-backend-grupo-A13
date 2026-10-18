@@ -14,11 +14,12 @@ block content
       input#name(type="text", name="name", required, minlength="3", maxlength="100")
     
       label(for="type") Tipo de donante:
-      select#type(type="hidden", name="type")
-        option(value="individual") Individual
-        option(value="corporativo") Corporativo
+      select#type(name="type", required)
+        option(value="") -- Elegí un tipo --
+        each type in types
+          option(value=type)= type
 
-      label(for="document") Documento (DNI, CUIT, etc.):"
+      label(for="document") Documento (DNI, CUIT, etc.):
       input#document(type="text", name="document", required, minlength="8", maxlength="11")
       //- ver si tiene constraints en mongoose o algo
 
@@ -45,9 +46,10 @@ block content
         th Email
         th Miembro
         th Estado
+        th Acciones
     tbody#donor-tbody
       tr
-        td(colspan="6") Cargando...
+        td(colspan="7") Cargando...
 
   script(src="/js/comun.js")
   script(src="/js/donors.js")

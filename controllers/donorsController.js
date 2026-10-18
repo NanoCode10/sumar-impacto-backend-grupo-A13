@@ -59,8 +59,8 @@ async function deleteDonor(req, res, next) {
 
 function renderDonors(req, res) {
   res.render("donors", {
-    title: "Donantes - SumarImpacto"
-    //type: Donor.TYPES
+    title: "Donantes - SumarImpacto",
+    types: Donor.TYPES
   });
 }
 
