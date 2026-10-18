@@ -19,12 +19,5 @@
     "type": "ONG",
     "email": "raices@raices.org.ar",
     "status": "aprobada"
-  },
-  {
-    "id": 4,
-    "name": "No puede hacer campañas",
-    "type": "ONG",
-    "email": "example@mail.com",
-    "status": "pendiente"
   }
 ]

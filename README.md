@@ -26,7 +26,8 @@ El proyecto está en la **segunda entrega**. Respecto de la primera:
 - se agregaron pantallas de gestión que consumen la API con **`fetch()`**;
 - el `DELETE` pasó a ser **borrado lógico**;
 - se agregaron **usuarios** con contraseña hasheada (módulo `crypto` de Node), **roles**
-  y **login**.
+  y **login**;
+- se agregaron **donantes y donaciones** (API y pantallas), un módulo que está **en desarrollo**.
 
 Lo que queda fuera de esta entrega está en [Desarrollo futuro](#desarrollo-futuro).
 
@@ -77,7 +78,7 @@ Router  →  Middleware de validación  →  Controller  →  Model (Mongoose)  
 - **Views** (`views/`): páginas Pug. El JavaScript del navegador está en `public/js/`.
 
 La **API** (`/api/...`) responde siempre JSON y las **vistas** (`/`, `/login`,
-`/organizations`, `/campaigns`, `/users`) responden HTML.
+`/organizations`, `/campaigns`, `/donors`, `/donations`, `/users`) responden HTML.
 
 ## Estructura de carpetas
 
@@ -390,6 +391,8 @@ Definidos una sola vez en los Models y en `config/parametros.js`:
 
 ### Donantes y donaciones
 
+Módulo **en desarrollo** (ver [Desarrollo futuro](#desarrollo-futuro)).
+
 - **Donantes** (`/api/donors`): requieren `name`, `type`, `document` y `email`.
   `isMember` es opcional (por defecto `false`); el estado inicial es `activo`.
 - **Donaciones** (`/api/donations`): requieren `donorId`, `campaignId`, `grossAmount`
@@ -461,14 +464,15 @@ Estas rutas no forman parte de la API: devuelven páginas HTML.
 | `/login`             | Verifica usuario (o email) y contraseña y muestra el resultado |
 | `/organizations`     | Gestión de organizaciones |
 | `/campaigns`         | Gestión de campañas |
+| `/donors`            | Gestión de donantes |
 | `/donations`         | Gestión de donaciones |
 | `/users`             | Gestión de usuarios |
 | `/organizations/:id` | Detalle de una organización |
 | `/campaigns/:id`     | Detalle de una campaña |
 
 Las páginas de **gestión** cargan los datos desde el navegador con `fetch()` contra la
-API (`public/js/organizations.js`, `public/js/campaigns.js`, `public/js/donations.js`,
-`public/js/users.js` y las funciones comunes de `public/js/comun.js`):
+API (`public/js/organizations.js`, `public/js/campaigns.js`, `public/js/donors.js`,
+`public/js/donations.js`, `public/js/users.js` y las funciones comunes de `public/js/comun.js`):
 
 - listar, crear, editar y eliminar sin recargar la página;
 - el mismo formulario sirve para alta y edición;
@@ -549,6 +553,8 @@ Fuera del alcance de esta entrega:
   `superadmin` gestione usuarios). Hoy cualquiera puede usar las páginas de gestión y la
   API, incluso entrando por la dirección directa. Una versión con `express-session`
   quedó como referencia en la rama `sesion-entrega3`.
+- **Donantes y donaciones.** Completar las reglas de integridad y trazabilidad del módulo,
+  que hoy está en desarrollo.
 - **Base de datos en la nube (MongoDB Atlas, entrega 3).** Hoy la base es local: cada
   integrante y el docente tienen la suya y la cargan con el seed.
 - **Requerimientos especificados en Ingeniería de Software** que todavía no están en el

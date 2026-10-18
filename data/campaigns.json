@@ -6,13 +6,5 @@
     "description": "Compra de heladeras y utensilios",
     "targetAmount": 1500000,
     "status": "activa"
-  },
-  {
-    "id": 2,
-    "organizationId": 2,
-    "title": "Prueba monto 2",
-    "description": "Plantar árboles autóctonos en bosques desforestados.",
-    "targetAmount": 100,
-    "status": "activa"
   }
 ]
