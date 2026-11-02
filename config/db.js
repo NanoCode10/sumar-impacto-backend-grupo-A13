@@ -20,7 +20,7 @@ export async function conectarDB() {
   if (!uri) {
     throw new Error(
       "Falta la variable de entorno MONGO_URI. Copiá .env.example como .env " +
-        "(por defecto apunta a MongoDB local)."
+        "(por defecto apunta a MongoDB local).",
     );
   }
 
@@ -29,7 +29,7 @@ export async function conectarDB() {
   } catch (err) {
     throw new Error(
       `No se pudo conectar a MongoDB: ${err.message}. ` +
-        "¿Está instalado MongoDB y el servicio en ejecución?"
+        "Verificá MONGO_URI, las credenciales, el acceso de red y la disponibilidad del servidor.",
     );
   }
 

@@ -243,12 +243,12 @@ Resumen:
 `data/users.json` sin hashear porque son datos de prueba conocidos; el seed las hashea
 al cargarlas y en la base queda sólo el hash.
 
-| Usuario | Contraseña | Rol |
-| ------- | ---------- | --- |
-| `superadmin` | `superadmin` | superadmin |
+| Usuario         | Contraseña      | Rol           |
+| --------------- | --------------- | ------------- |
+| `superadmin`    | `superadmin`    | superadmin    |
 | `administrador` | `administrador` | administrador |
-| `auditoria` | `auditoria` | auditoria |
-| `organizacion` | `organizacion` | organizacion |
+| `auditoria`     | `auditoria`     | auditoria     |
+| `organizacion`  | `organizacion`  | organizacion  |
 
 Se puede entrar con el usuario o con el email (`<usuario>@sumarimpacto.org`).
 
@@ -256,35 +256,35 @@ Se puede entrar con el usuario o con el email (`<usuario>@sumarimpacto.org`).
 
 Todas las rutas de la API están bajo `/api` y responden siempre JSON.
 
-| Método | Ruta                               | Descripción                                                     |
-| ------ | ---------------------------------- | --------------------------------------------------------------- |
-| GET    | `/api/organizations`               | Lista organizaciones (filtros opcionales `type` y `status`)     |
-| POST   | `/api/organizations`               | Crea una organización                                           |
-| GET    | `/api/organizations/:id`           | Obtiene una organización                                        |
-| GET    | `/api/organizations/:id/campaigns` | Lista las campañas de una organización                          |
-| PUT    | `/api/organizations/:id`           | Actualiza una organización                                      |
-| DELETE | `/api/organizations/:id`           | Elimina una organización (borrado lógico)                       |
-| GET    | `/api/campaigns`                   | Lista campañas (filtros opcionales `organizationId` y `status`) |
-| POST   | `/api/campaigns`                   | Crea una campaña                                                |
-| GET    | `/api/campaigns/:id`               | Obtiene una campaña                                             |
-| PUT    | `/api/campaigns/:id`               | Actualiza una campaña                                           |
-| DELETE | `/api/campaigns/:id`               | Elimina una campaña (borrado lógico)                            |
-| GET    | `/api/donors`                     | Lista donantes (filtros opcionales `type` y `status`)           |
-| POST   | `/api/donors`                     | Crea un donante                                                 |
-| GET    | `/api/donors/:id`                 | Obtiene un donante                                              |
-| PUT    | `/api/donors/:id`                 | Actualiza un donante                                            |
-| DELETE | `/api/donors/:id`                 | Elimina un donante (borrado lógico)                             |
-| GET    | `/api/donations`                  | Lista donaciones (filtros por `donorId`, `campaignId`, `paymentMethod`, `status`) |
-| POST   | `/api/donations`                  | Crea una donación y calcula sus importes                        |
-| GET    | `/api/donations/:id`              | Obtiene una donación                                            |
-| PUT    | `/api/donations/:id`              | Actualiza datos permitidos y recalcula sus importes             |
-| DELETE | `/api/donations/:id`              | Anula una donación (borrado lógico)                             |
-| GET    | `/api/users`                       | Lista usuarios (filtro opcional `role`)                         |
-| POST   | `/api/users`                       | Crea un usuario                                                 |
-| GET    | `/api/users/:id`                   | Obtiene un usuario                                              |
-| PUT    | `/api/users/:id`                   | Actualiza nombre, email, rol y contraseña (no el username)      |
-| DELETE | `/api/users/:id`                   | Elimina un usuario (borrado lógico)                             |
-| POST   | `/api/auth/login`                  | Verifica usuario (username o email) y contraseña                |
+| Método | Ruta                               | Descripción                                                                       |
+| ------ | ---------------------------------- | --------------------------------------------------------------------------------- |
+| GET    | `/api/organizations`               | Lista organizaciones (filtros opcionales `type` y `status`)                       |
+| POST   | `/api/organizations`               | Crea una organización                                                             |
+| GET    | `/api/organizations/:id`           | Obtiene una organización                                                          |
+| GET    | `/api/organizations/:id/campaigns` | Lista las campañas de una organización                                            |
+| PUT    | `/api/organizations/:id`           | Actualiza una organización                                                        |
+| DELETE | `/api/organizations/:id`           | Elimina una organización (borrado lógico)                                         |
+| GET    | `/api/campaigns`                   | Lista campañas (filtros opcionales `organizationId` y `status`)                   |
+| POST   | `/api/campaigns`                   | Crea una campaña                                                                  |
+| GET    | `/api/campaigns/:id`               | Obtiene una campaña                                                               |
+| PUT    | `/api/campaigns/:id`               | Actualiza una campaña                                                             |
+| DELETE | `/api/campaigns/:id`               | Elimina una campaña (borrado lógico)                                              |
+| GET    | `/api/donors`                      | Lista donantes (filtros opcionales `type` y `status`)                             |
+| POST   | `/api/donors`                      | Crea un donante                                                                   |
+| GET    | `/api/donors/:id`                  | Obtiene un donante                                                                |
+| PUT    | `/api/donors/:id`                  | Actualiza un donante                                                              |
+| DELETE | `/api/donors/:id`                  | Elimina un donante (borrado lógico)                                               |
+| GET    | `/api/donations`                   | Lista donaciones (filtros por `donorId`, `campaignId`, `paymentMethod`, `status`) |
+| POST   | `/api/donations`                   | Crea una donación y calcula sus importes                                          |
+| GET    | `/api/donations/:id`               | Obtiene una donación                                                              |
+| PUT    | `/api/donations/:id`               | Actualiza datos permitidos y recalcula sus importes                               |
+| DELETE | `/api/donations/:id`               | Anula una donación (borrado lógico)                                               |
+| GET    | `/api/users`                       | Lista usuarios (filtro opcional `role`)                                           |
+| POST   | `/api/users`                       | Crea un usuario                                                                   |
+| GET    | `/api/users/:id`                   | Obtiene un usuario                                                                |
+| PUT    | `/api/users/:id`                   | Actualiza nombre, email, rol y contraseña (no el username)                        |
+| DELETE | `/api/users/:id`                   | Elimina un usuario (borrado lógico)                                               |
+| POST   | `/api/auth/login`                  | Verifica usuario (username o email) y contraseña                                  |
 
 ### Usuarios y login
 
@@ -435,16 +435,16 @@ Campos obligatorios al crear:
 
 ### Errores y reglas de negocio
 
-| Código | Cuándo |
-| ------ | ------ |
-| `400`  | Id, body o filtro inválidos; JSON mal formado |
-| `401`  | Usuario y contraseña no coinciden (login) |
-| `404`  | La ruta, la organización, la campaña, el donante, la donación o el usuario no existen |
+| Código | Cuándo                                                                                            |
+| ------ | ------------------------------------------------------------------------------------------------- |
+| `400`  | Id, body o filtro inválidos; JSON mal formado                                                     |
+| `401`  | Usuario y contraseña no coinciden (login)                                                         |
+| `404`  | La ruta, la organización, la campaña, el donante, la donación o el usuario no existen             |
 | `409`  | Se intenta crear una campaña, o moverla a otra organización, y la organización no está `aprobada` |
-| `409`  | Donante inactivo, campaña no activa al donar o intento de cambiar una donación de campaña |
-| `409`  | Se intenta eliminar una organización que todavía tiene campañas vigentes |
-| `409`  | Username o email ya usados; eliminar o degradar al último superadmin |
-| `500`  | Error inesperado (mensaje genérico, sin detalles internos) |
+| `409`  | Donante inactivo, campaña no activa al donar o intento de cambiar una donación de campaña         |
+| `409`  | Se intenta eliminar una organización que todavía tiene campañas vigentes                          |
+| `409`  | Username o email ya usados; eliminar o degradar al último superadmin                              |
+| `500`  | Error inesperado (mensaje genérico, sin detalles internos)                                        |
 
 Las reglas de negocio están en los Models, en métodos propios:
 `Campaign.crear`, `Campaign.actualizar`, `Campaign.eliminar`, `Organization.eliminar`,
@@ -458,17 +458,17 @@ Las reglas de negocio están en los Models, en métodos propios:
 
 Estas rutas no forman parte de la API: devuelven páginas HTML.
 
-| Ruta                 | Página |
-| -------------------- | ------ |
-| `/`                  | Inicio, con el listado de organizaciones y campañas |
+| Ruta                 | Página                                                         |
+| -------------------- | -------------------------------------------------------------- |
+| `/`                  | Inicio, con el listado de organizaciones y campañas            |
 | `/login`             | Verifica usuario (o email) y contraseña y muestra el resultado |
-| `/organizations`     | Gestión de organizaciones |
-| `/campaigns`         | Gestión de campañas |
-| `/donors`            | Gestión de donantes |
-| `/donations`         | Gestión de donaciones |
-| `/users`             | Gestión de usuarios |
-| `/organizations/:id` | Detalle de una organización |
-| `/campaigns/:id`     | Detalle de una campaña |
+| `/organizations`     | Gestión de organizaciones                                      |
+| `/campaigns`         | Gestión de campañas                                            |
+| `/donors`            | Gestión de donantes                                            |
+| `/donations`         | Gestión de donaciones                                          |
+| `/users`             | Gestión de usuarios                                            |
+| `/organizations/:id` | Detalle de una organización                                    |
+| `/campaigns/:id`     | Detalle de una campaña                                         |
 
 Las páginas de **gestión** cargan los datos desde el navegador con `fetch()` contra la
 API (`public/js/organizations.js`, `public/js/campaigns.js`, `public/js/donors.js`,
@@ -502,14 +502,14 @@ pass 112
 fail 0
 ```
 
-| Archivo | Tests | Qué prueba |
-| ------- | ----- | ---------- |
-| `validateId.test.js` | 10 | Ids ObjectId válidos e inválidos y la delegación del error con `next(err)` |
-| `validateOrganization.test.js` | 17 | Campos obligatorios, tipos, valores permitidos y normalización de organizaciones |
-| `validateCampaigns.test.js` | 26 | Campos obligatorios, tipos reales, `organizationId` y valores permitidos de campañas |
-| `validateDonorsDonations.test.js` | 5 | Validación de donantes, donaciones y filtros |
-| `validateUser.test.js` | 14 | Validación del alta, la edición y el filtro de usuarios, y del login |
-| `reglasNegocio.test.js` | 40 | Reglas 404/409, schemas, actualizaciones parciales, filtros, borrado lógico, usuarios y donaciones contra MongoDB |
+| Archivo                           | Tests | Qué prueba                                                                                                        |
+| --------------------------------- | ----- | ----------------------------------------------------------------------------------------------------------------- |
+| `validateId.test.js`              | 10    | Ids ObjectId válidos e inválidos y la delegación del error con `next(err)`                                        |
+| `validateOrganization.test.js`    | 17    | Campos obligatorios, tipos, valores permitidos y normalización de organizaciones                                  |
+| `validateCampaigns.test.js`       | 26    | Campos obligatorios, tipos reales, `organizationId` y valores permitidos de campañas                              |
+| `validateDonorsDonations.test.js` | 5     | Validación de donantes, donaciones y filtros                                                                      |
+| `validateUser.test.js`            | 14    | Validación del alta, la edición y el filtro de usuarios, y del login                                              |
+| `reglasNegocio.test.js`           | 40    | Reglas 404/409, schemas, actualizaciones parciales, filtros, borrado lógico, usuarios y donaciones contra MongoDB |
 
 ### Bases de desarrollo y de pruebas
 
@@ -543,6 +543,32 @@ un ObjectId.
   <em>Primera entrega: GET /api/organizations/1 con Postman (ids numéricos, persistencia JSON).</em>
 </p>
 
+## MongoDB Atlas — Base de datos compartida
+
+El Grupo A13 utiliza MongoDB Atlas como entorno compartido de desarrollo.
+
+**Configuración:**
+
+1. Clonar el repositorio y ejecutar `npm install`.
+2. Copiar `.env.example` como `.env`.
+3. Solicitar al responsable del proyecto la URI de conexión y las credenciales.
+4. Configurar `MONGO_URI` en el archivo `.env`.
+5. Verificar que la IP pública esté autorizada en Atlas.
+6. Ejecutar `npm run dev`.
+7. Abrir `http://localhost:3000`.
+
+La aplicación se conecta a la base `sumarimpacto` del cluster compartido.
+
+**Importante:**
+
+- No subir `.env` ni credenciales al repositorio.
+- Los cambios de datos afectan al resto de los integrantes.
+- La base ya contiene los datos iniciales. No es necesario ejecutar el seed en cada computadora.
+- No ejecutar pruebas que limpien datos sobre la base compartida.
+- Las pruebas automatizadas deben utilizar una base local separada, `sumarimpacto_test`.
+
+El acceso compartido es temporal. Posteriormente se asignarán usuarios individuales con permisos limitados.
+
 ## Desarrollo futuro
 
 Fuera del alcance de esta entrega:
@@ -555,8 +581,6 @@ Fuera del alcance de esta entrega:
   quedó como referencia en la rama `sesion-entrega3`.
 - **Donantes y donaciones.** Completar las reglas de integridad y trazabilidad del módulo,
   que hoy está en desarrollo.
-- **Base de datos en la nube (MongoDB Atlas, entrega 3).** Hoy la base es local: cada
-  integrante y el docente tienen la suya y la cargan con el seed.
 - **Requerimientos especificados en Ingeniería de Software** que todavía no están en el
   backend, como el registro de evaluación de organizaciones con motivo de rechazo.
 
