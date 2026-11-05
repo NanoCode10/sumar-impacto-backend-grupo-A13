@@ -1,11 +1,12 @@
 import express from "express";
 
-// import Middlewares
+// Middlewares
 import validateId from "../middlewares/validateId.js";
 import { validateOrganization } from "../middlewares/validateBody.js";
 import { validateOrganizationQuery } from "../middlewares/validateQuery.js";
+import { hasRole } from "../middlewares/auth.js";
 
-// import Controllers
+// Controllers
 import {
   getOrganizations,
   getOrganizationCampaigns,
@@ -15,16 +16,16 @@ import {
   deleteOrganization
 } from "../controllers/organizationsController.js";
 
-// Create a new router instance
 const router = express.Router();
 
-// Rutas de la API del recurso, montadas en /api/organizations (ver index.js)
+// Consultas públicas (lectura de organizaciones y sus campañas)
 router.get("/", validateOrganizationQuery, getOrganizations);
-router.post("/", validateOrganization("create"), createOrganization);
 router.get("/:id", validateId, getOrganizationById);
 router.get("/:id/campaigns", validateId, getOrganizationCampaigns);
-router.put("/:id", validateId, validateOrganization("update"), updateOrganization);
-router.delete("/:id", validateId, deleteOrganization);
 
-// Exporta el router para que pueda ser utilizado en otros archivos, como index.js
+// Operaciones de gestión protegidas: sólo superadmin y administrador (Entrega 3)
+router.post("/", hasRole("superadmin", "administrador"), validateOrganization("create"), createOrganization);
+router.put("/:id", validateId, hasRole("superadmin", "administrador"), validateOrganization("update"), updateOrganization);
+router.delete("/:id", validateId, hasRole("superadmin", "administrador"), deleteOrganization);
+
 export default router;

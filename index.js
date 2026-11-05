@@ -1,4 +1,5 @@
 import express from "express";
+import session from "express-session";
 import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,8 +26,28 @@ dotenv.config({ quiet: true });
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-//Middleware incorporado en Express para parsear el cuerpo de las solicitudes entrantes en formato JSON
+// Middleware incorporado en Express para parsear el cuerpo de las solicitudes entrantes en formato JSON
 app.use(express.json());
+
+// Manejo de sesiones de usuario con express-session (Entrega 3)
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "sumarimpacto_clave_secreta_para_sesiones_2026",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24, // 24 horas de duración
+      sameSite: "lax"
+    }
+  })
+);
+
+// Pasa el usuario activo a res.locals para que las vistas Pug adapten su navegación
+app.use((req, res, next) => {
+  res.locals.user = req.session?.user || null;
+  next();
+});
 
 // Configuración del motor de plantillas Pug
 app.set("view engine", "pug");

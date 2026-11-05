@@ -92,3 +92,19 @@ function filaUnica(tbody, texto, columnas) {
   tr.appendChild(td);
   tbody.replaceChildren(tr);
 }
+
+// Manejador del botón de cerrar sesión en la barra de navegación
+document.addEventListener("DOMContentLoaded", () => {
+  const btnLogout = document.getElementById("btn-logout");
+  if (btnLogout) {
+    btnLogout.addEventListener("click", async (e) => {
+      e.preventDefault();
+      try {
+        await pedir("/api/auth/logout", { method: "POST" });
+        window.location.href = "/login";
+      } catch (err) {
+        alert("Error al cerrar sesión: " + err.message);
+      }
+    });
+  }
+});

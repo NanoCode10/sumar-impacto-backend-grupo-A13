@@ -216,8 +216,13 @@ html(lang="es")
         a(href="/campaigns") Campañas
         a(href="/donors") Donantes
         a(href="/donations") Donaciones
-        a(href="/users") Usuarios
-        a(href="/login") Ingresar
+        if user && user.role === 'superadmin'
+          a(href="/users") Usuarios
+        if user
+          span.badge(style="background-color: #1e3a8a; color: white; padding: 0.2rem 0.6rem;")= `${user.username} (${user.role})`
+          a#btn-logout(href="#", style="color: #fca5a5; text-decoration: underline;") Salir
+        else
+          a(href="/login") Ingresar
     main
       block content
     footer

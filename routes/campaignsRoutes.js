@@ -3,6 +3,7 @@ import express from "express";
 import validateId from "../middlewares/validateId.js";
 import { validateCampaign } from "../middlewares/validateBody.js";
 import { validateCampaignQuery } from "../middlewares/validateQuery.js";
+import { hasRole } from "../middlewares/auth.js";
 
 import {
   getCampaigns,
@@ -14,11 +15,13 @@ import {
 
 const router = express.Router();
 
-// Rutas de la API del recurso, montadas en /api/campaigns (ver index.js)
+// Consultas públicas (lectura de campañas)
 router.get("/", validateCampaignQuery, getCampaigns);
-router.post("/", validateCampaign("create"), createCampaign);
 router.get("/:id", validateId, getCampaignById);
-router.put("/:id", validateId, validateCampaign("update"), updateCampaign);
-router.delete("/:id", validateId, deleteCampaign);
+
+// Operaciones protegidas (Entrega 3)
+router.post("/", hasRole("superadmin", "administrador", "organizacion"), validateCampaign("create"), createCampaign);
+router.put("/:id", validateId, hasRole("superadmin", "administrador", "organizacion"), validateCampaign("update"), updateCampaign);
+router.delete("/:id", validateId, hasRole("superadmin", "administrador"), deleteCampaign);
 
 export default router;

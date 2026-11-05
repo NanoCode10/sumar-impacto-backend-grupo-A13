@@ -1,33 +1,45 @@
 import express from "express";
 
 import validateId from "../middlewares/validateId.js";
+import { requireAuthView } from "../middlewares/auth.js";
 import { renderHome, renderLogin } from "../controllers/viewsController.js";
 import { renderOrganization, renderOrganizations } from "../controllers/organizationsController.js";
 import { renderCampaign, renderCampaigns } from "../controllers/campaignsController.js";
 import { renderUsers } from "../controllers/usersController.js";
 import { renderDonors } from "../controllers/donorsController.js";
 import { renderDonations } from "../controllers/donationsController.js";
+
 /**
  * Páginas HTML generadas con Pug. Son las únicas rutas que usan res.render;
  * la API vive bajo /api y siempre responde JSON.
- * El Router sólo define las rutas: Router -> Controller -> Model -> vista Pug.
  */
 const router = express.Router();
 
 router.get("/", renderHome);
 router.get("/login", renderLogin);
 
-// Página de gestión: los datos los pide el navegador con fetch() a /api/organizations.
+// Páginas de gestión de recursos
 router.get("/organizations", renderOrganizations);
 router.get("/organizations/:id", validateId, renderOrganization);
-// Página de gestión: los datos los pide el navegador con fetch() a /api/campaigns.
 router.get("/campaigns", renderCampaigns);
 router.get("/campaigns/:id", validateId, renderCampaign);
 
-// Página de gestión: los datos los pide el navegador con fetch() a /api/users.
-router.get("/users", renderUsers);
+// Página de gestión de usuarios: reservada para superadmin autenticado
+router.get(
+  "/users",
+  requireAuthView,
+  (req, res, next) => {
+    if (req.session.user.role !== "superadmin") {
+      const err = new Error("Acceso denegado: sólo superadmin puede gestionar usuarios");
+      err.statusCode = 403;
+      return next(err);
+    }
+    next();
+  },
+  renderUsers
+);
 
-// Pagina de gestion de donantes
+// Páginas de gestión de donantes y donaciones
 router.get("/donors", renderDonors);
 router.get("/donations", renderDonations);
 
