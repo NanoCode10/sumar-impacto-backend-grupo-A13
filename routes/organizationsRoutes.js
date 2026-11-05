@@ -1,20 +1,30 @@
-const express = require("express");
+import express from "express";
 
-const validateId = require("../middlewares/validateId");
-const {
-  getOrganizationById,
+// import Middlewares
+import validateId from "../middlewares/validateId.js";
+import { validateOrganization } from "../middlewares/validateBody.js";
+import { validateOrganizationQuery } from "../middlewares/validateQuery.js";
+
+// import Controllers
+import {
   getOrganizations,
+  getOrganizationCampaigns,
+  getOrganizationById,
   createOrganization,
   updateOrganization,
-  deleteOrganization,
-} = require("../controllers/organizationsController");
+  deleteOrganization
+} from "../controllers/organizationsController.js";
 
+// Create a new router instance
 const router = express.Router();
 
-router.get("/", getOrganizations);
-router.post("/", createOrganization);
+// Rutas de la API del recurso, montadas en /api/organizations (ver index.js)
+router.get("/", validateOrganizationQuery, getOrganizations);
+router.post("/", validateOrganization("create"), createOrganization);
 router.get("/:id", validateId, getOrganizationById);
-router.put("/:id", validateId, updateOrganization);
+router.get("/:id/campaigns", validateId, getOrganizationCampaigns);
+router.put("/:id", validateId, validateOrganization("update"), updateOrganization);
 router.delete("/:id", validateId, deleteOrganization);
 
-module.exports = router;
+// Exporta el router para que pueda ser utilizado en otros archivos, como index.js
+export default router;

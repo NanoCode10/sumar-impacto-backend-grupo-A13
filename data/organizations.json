@@ -4,20 +4,20 @@
     "name": "Comedor Esperanza",
     "type": "comedor",
     "email": "contacto@esperanza.org",
-    "status": "approved"
+    "status": "aprobada"
   },
   {
     "id": 2,
     "name": "Fundación Verde Futuro",
     "type": "fundación",
     "email": "info@verdefuturo.org",
-    "status": "approved"
+    "status": "aprobada"
   },
   {
     "id": 3,
     "name": "ONG Raíces",
     "type": "ONG",
     "email": "raices@raices.org.ar",
-    "status": "approved"
+    "status": "aprobada"
   }
 ]

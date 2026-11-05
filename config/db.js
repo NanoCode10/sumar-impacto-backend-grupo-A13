@@ -1,26 +1,38 @@
-const mongoose = require("mongoose");
-const dns = require("dns");
-dns.setServers(["8.8.8.8", "1.1.1.1"]);
+import mongoose from "mongoose";
+
 /**
- * connectDB: Establece la conexión con MongoDB usando Mongoose.
- * La URI de conexión se lee desde la variable de entorno MONGODB_URI,
- * definida en el archivo .env 
+ * CONEXIÓN A MONGODB (servidor local)
+ * La cadena de conexión se lee de la variable de entorno MONGO_URI, que dotenv
+ * carga desde el archivo .env (ver .env.example). Así cada integrante puede
+ * apuntar a su propia base sin tocar el código.
  *
- * @returns {Promise<void>}
- * @throws {Error}
+ * conectarDB no termina el proceso: si algo falla lanza un Error con un mensaje
+ * claro, e index.js decide qué hacer (no levantar el servidor).
  */
-async function connectDB() {
-  const uri = process.env.MONGODB_URI;
+
+// Tiempo máximo para encontrar el servidor. Sin este límite, si el servicio de
+// MongoDB está detenido el arranque queda esperando 30 segundos antes de fallar.
+const TIMEOUT_MS = 5000;
+
+export async function conectarDB() {
+  const uri = process.env.MONGO_URI;
 
   if (!uri) {
     throw new Error(
-      "La variable de entorno MONGODB_URI no está definida. " +
-      "Asegurate de crear un archivo .env con MONGODB_URI=<tu_uri>."
+      "Falta la variable de entorno MONGO_URI. Copiá .env.example como .env " +
+        "(por defecto apunta a MongoDB local).",
     );
   }
 
-  await mongoose.connect(uri);
-  console.log("Conexión a MongoDB establecida correctamente.");
-}
+  try {
+    await mongoose.connect(uri, { serverSelectionTimeoutMS: TIMEOUT_MS });
+  } catch (err) {
+    throw new Error(
+      `No se pudo conectar a MongoDB: ${err.message}. ` +
+        "Verificá MONGO_URI, las credenciales, el acceso de red y la disponibilidad del servidor.",
+    );
+  }
 
-module.exports = connectDB;
+  // Se muestra sólo el nombre de la base, no la cadena de conexión.
+  console.log(`MongoDB conectado (base: ${mongoose.connection.name})`);
+}

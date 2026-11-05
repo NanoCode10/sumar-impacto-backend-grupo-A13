@@ -1,21 +1,24 @@
-const express = require("express");
+import express from "express";
 
-const validateId = require("../middlewares/validateId");
+import validateId from "../middlewares/validateId.js";
+import { validateCampaign } from "../middlewares/validateBody.js";
+import { validateCampaignQuery } from "../middlewares/validateQuery.js";
 
-const {
+import {
   getCampaigns,
   getCampaignById,
   createCampaign,
   updateCampaign,
-  deleteCampaign,
-} = require("../controllers/campaignsControllers");
+  deleteCampaign
+} from "../controllers/campaignsController.js";
 
 const router = express.Router();
 
-router.get("/", getCampaigns);
-router.post("/", createCampaign);
+// Rutas de la API del recurso, montadas en /api/campaigns (ver index.js)
+router.get("/", validateCampaignQuery, getCampaigns);
+router.post("/", validateCampaign("create"), createCampaign);
 router.get("/:id", validateId, getCampaignById);
-router.put("/:id", validateId, updateCampaign);
+router.put("/:id", validateId, validateCampaign("update"), updateCampaign);
 router.delete("/:id", validateId, deleteCampaign);
 
-module.exports = router;
+export default router;

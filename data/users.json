@@ -1,0 +1,30 @@
+[
+  {
+    "username": "superadmin",
+    "name": "Super Administrador",
+    "email": "superadmin@sumarimpacto.org",
+    "password": "superadmin",
+    "role": "superadmin"
+  },
+  {
+    "username": "administrador",
+    "name": "Administración SumarImpacto",
+    "email": "administrador@sumarimpacto.org",
+    "password": "administrador",
+    "role": "administrador"
+  },
+  {
+    "username": "auditoria",
+    "name": "Auditoría y Control",
+    "email": "auditoria@sumarimpacto.org",
+    "password": "auditoria",
+    "role": "auditoria"
+  },
+  {
+    "username": "organizacion",
+    "name": "Referente Comedor Esperanza",
+    "email": "organizacion@sumarimpacto.org",
+    "password": "organizacion",
+    "role": "organizacion"
+  }
+]

@@ -1,64 +1,138 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
+
+// Import circular: Campaign también importa Organization. Funciona porque los
+// dos modelos sólo se usan entre sí DENTRO de los métodos, nunca al cargar el
+// módulo. No usar Campaign en código de nivel superior.
+import Campaign from "./Campaign.js";
+import softDelete from "../utils/softDelete.js";
 
 /**
- * Modelo Organization
+ * MODELO Organization (Mongoose)
+ * El schema define los campos, sus tipos y sus validaciones; MongoDB guarda cada
+ * organización como un documento de la colección "organizations".
  *
- * Atributos:
- *  - name   {String}  Nombre de la organización. Obligatorio.
- *  - type   {String}  Tipo. Valores permitidos: "ONG", "fundación", "comedor".
- *  - email  {String}  Email de contacto. Obligatorio.
- *  - status {String}  Estado. Valores permitidos: "pendiente", "aprobada", "suspendida", "baja".
- *                     Por defecto: "pendiente".
+ * Es la segunda capa de validación: la primera es middlewares/validateBody.js,
+ * que corre antes del controller y arma los mensajes de error de la API.
+ *
+ * MÉTODOS
+ *  - Propios (en español), con las reglas de negocio:
+ *      buscarTodas(filtros), actualizar(id, datos), eliminar(id).
+ *  - De Mongoose, usados tal cual donde no hay reglas: findById, create.
+ * Los errores de negocio se lanzan como Error con statusCode (el Model no tiene
+ * res); el controller los delega al errorHandler.
  */
 
-/** Constantes exportadas para que los middlewares de validación las puedan reutilizar */
+// Valores permitidos del dominio. Se definen una sola vez y el resto del código
+// los referencia (validateBody, validateQuery, vistas).
 const TYPES = ["ONG", "fundación", "comedor"];
-const STATUSES = ["pendiente", "aprobada", "suspendida", "baja"];
+const STATUSES = ["pendiente", "aprobada", "suspendida", "desvinculada"];
 
-/** Único estado que habilita a tener campañas. */
+// Único estado que habilita a tener campañas. Se referencia desde Campaign.
 const APPROVED = "aprobada";
+
+// Formato de email. Lo usa también validateBody.
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const organizationSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: [true, "El nombre de la organización es obligatorio"],
+      required: [true, "name es obligatorio"],
       trim: true,
+      minlength: [3, "name debe ser un texto de 3 a 100 caracteres"],
+      maxlength: [100, "name debe ser un texto de 3 a 100 caracteres"]
     },
     type: {
       type: String,
-      required: [true, "El tipo de organización es obligatorio"],
-      enum: {
-        values: TYPES,
-        message: `El tipo debe ser uno de: ${TYPES.join(", ")}`,
-      },
-      trim: true,
+      required: [true, "type es obligatorio"],
+      enum: { values: TYPES, message: `type inválido. Valores permitidos: ${TYPES.join(", ")}` }
     },
     email: {
       type: String,
-      required: [true, "El email de contacto es obligatorio"],
+      required: [true, "email es obligatorio"],
       trim: true,
       lowercase: true,
+      match: [EMAIL, "email no tiene un formato válido"]
     },
     status: {
       type: String,
-      enum: {
-        values: STATUSES,
-        message: `El estado debe ser uno de: ${STATUSES.join(", ")}`,
-      },
-      default: "pendiente",
-    },
+      enum: { values: STATUSES, message: `status inválido. Valores permitidos: ${STATUSES.join(", ")}` },
+      default: "pendiente"
+    }
   },
   {
-    // Agrega automáticamente los campos createdAt y updatedAt
+    // Agrega y mantiene automáticamente createdAt y updatedAt en cada documento.
     timestamps: true,
+    // Cómo se convierte a JSON en las respuestas de la API: "id" como texto en
+    // lugar de "_id", y sin "__v" (versión interna de Mongoose).
+    toJSON: {
+      versionKey: false,
+      transform: (doc, ret) => {
+        const { _id, ...resto } = ret;
+        return { id: _id.toString(), ...resto };
+      }
+    }
   }
 );
+
+// Borrado lógico: campo deletedAt y filtro automático en todas las consultas.
+organizationSchema.plugin(softDelete);
+
+// Deja sólo los campos que vinieron: en un PUT los demás no se tocan.
+const soloDefinidos = (datos) =>
+  Object.fromEntries(Object.entries(datos).filter(([, valor]) => valor !== undefined));
+
+/**
+ * Organizaciones ordenadas por fecha de alta. Sin filtros, todas.
+ * Los filtros ya llegan validados y con el valor canónico (validateQuery), así
+ * que se comparan tal cual contra lo guardado.
+ * @param {{type?: string, status?: string}} filtros
+ */
+organizationSchema.statics.buscarTodas = function (filtros = {}) {
+  return this.find(filtros).sort({ _id: 1 });
+};
+
+/**
+ * Actualiza sólo los campos enviados. Devuelve la organización actualizada, o
+ * null si no existe.
+ */
+organizationSchema.statics.actualizar = function (id, datos) {
+  // returnDocument: "after" devuelve el documento ya actualizado (en Mongoose 9
+  // reemplaza a la opción new: true, que quedó deprecada). runValidators aplica
+  // las validaciones del schema también en la actualización.
+  return this.findByIdAndUpdate(id, soloDefinidos(datos), { returnDocument: "after", runValidators: true });
+};
+
+/**
+ * Elimina una organización (borrado lógico). Devuelve la organización eliminada,
+ * o null si no existe o ya estaba eliminada.
+ * Regla de negocio: una organización con campañas vigentes no se elimina (409),
+ * porque esas campañas quedarían apuntando a una organización que ya no existe.
+ * Las campañas eliminadas no cuentan: el middleware de Campaign las excluye.
+ */
+organizationSchema.statics.eliminar = async function (id) {
+  const organization = await this.findById(id);
+  if (!organization) {
+    return null;
+  }
+
+  const cantidad = await Campaign.countDocuments({ organizationId: id });
+  if (cantidad > 0) {
+    const err = new Error(`La organización «${organization.name}» tiene ${cantidad} campaña(s) y no puede eliminarse`);
+    err.statusCode = 409;
+    throw err;
+  }
+
+  organization.deletedAt = new Date();
+  await organization.save();
+  return organization;
+};
 
 const Organization = mongoose.model("Organization", organizationSchema);
 
 Organization.TYPES = TYPES;
 Organization.STATUSES = STATUSES;
 Organization.APPROVED = APPROVED;
+Organization.EMAIL = EMAIL;
 
-module.exports = Organization;
+export default Organization;

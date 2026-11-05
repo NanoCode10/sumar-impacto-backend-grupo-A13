@@ -1,0 +1,58 @@
+extends layout
+
+block content
+  .card
+    h2 Gestión de donaciones
+    p La tabla se carga y se actualiza con fetch() contra la API, sin recargar la página.
+    p Sólo se pueden registrar donaciones para donantes activos y campañas activas. La campaña no se puede cambiar al editar.
+    //- El campo de elegir donante debería precargarse y quedar bloqueado o deshabilitado al implementar los usuarios con sesiones.
+    //- Asimismo, bloquearlo en modo edición. 
+    //- El campo de cambiar campaña debería bloquearse en modo edición 
+
+    form#donation-form
+      h3#form-titulo Nueva donación
+
+      label(for="donorId") Donante:
+      select#donorId(name="donorId", required)
+        option(value="") Cargando...
+
+      label(for="campaignId") Campaña
+      select#campaignId(name="campaignId", required)
+        option(value="") Cargando...
+
+      label(for="grossAmount") Monto bruto
+      input#grossAmount(type="number", name="grossAmount", required, min="0.01", step="0.01")
+
+      label(for="paymentMethod") Medio de pago
+      select#paymentMethod(name="paymentMethod", required)
+        option(value="") -- Elegí un medio de pago --
+        each method in paymentMethods
+          option(value=method)= method
+
+      .acciones
+        button(type="submit") Guardar
+        button#btn-cancelar(type="button", hidden) Cancelar edición
+
+    p#mensaje(role="status")
+
+  h3.section-title Donaciones
+  table.tabla
+    thead
+      tr
+        th Fecha
+        th Donante
+        th Campaña
+        th Monto bruto
+        th Monto neto
+        th Medio de pago
+        th Estado
+        th Acciones
+    tbody#donation-tbody
+      tr
+        td(colspan="8") Cargando...
+
+  p
+    a(href="/") Volver al inicio
+
+  script(src="/js/comun.js")
+  script(src="/js/donations.js")

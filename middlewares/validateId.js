@@ -1,21 +1,20 @@
-const mongoose = require("mongoose");
+import esObjectId from "../utils/objectId.js";
 
-/**
- * validateId: Middleware que verifica que el parámetro :id de la ruta
- * sea un ObjectId válido de MongoDB (cadena hexadecimal de 24 caracteres).
- *
- * Los IDs en MongoDB no son números enteros sino ObjectIds.
- * Si el id no tiene el formato correcto, Mongoose lanzaría un CastError interno;
- * este middleware lo intercepta antes y devuelve un 400 descriptivo.
- */
 function validateId(req, res, next) {
+
+  // Extrae el id de los parámetros de la solicitud
   const { id } = req.params;
 
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: "El id proporcionado no es un ObjectId válido de MongoDB" });
+  // Verifica que el id sea un ObjectId de MongoDB (24 caracteres hexadecimales).
+  // Si no lo es, delega el error al errorHandler global (middlewares/errors.js):
+  // se usa en la API y en las vistas, y es él quien decide si responder JSON o HTML.
+  if (!esObjectId(id)) {
+    const err = new Error("El id debe ser un ObjectId válido (24 caracteres hexadecimales)");
+    err.statusCode = 400;
+    return next(err);
   }
-
+  // Si el id es válido, llama a next() para pasar al siguiente middleware o controlador
   next();
 }
 
-module.exports = validateId;
+export default validateId;
