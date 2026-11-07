@@ -39,12 +39,27 @@ export function crearAsistente({
   return {
     configurado: true,
     async responder(pregunta) {
-      const respuesta = await ai.models.generateContent({
+      const consulta = ai.models.generateContent({
         model: modelo,
         contents: pregunta,
-        config: { systemInstruction: instruccion }
+        // Tope de largo de la respuesta: unas cinco oraciones (también acota el consumo).
+        config: { systemInstruction: instruccion, maxOutputTokens: MAXIMO_TOKENS_RESPUESTA }
       });
+      const respuesta = await conTiempoMaximo(consulta, TIEMPO_MAXIMO_MS);
       return respuesta.text?.trim() || "No tengo una respuesta para eso.";
     }
   };
+}
+
+const MAXIMO_TOKENS_RESPUESTA = 400;
+const TIEMPO_MAXIMO_MS = 20000;
+
+// Si Google tarda más que el máximo, se deja de esperar y se informa: el chat no queda
+// con «escribiendo…» indefinidamente.
+export function conTiempoMaximo(promesa, ms) {
+  let temporizador;
+  const vencimiento = new Promise((_, rechazar) => {
+    temporizador = setTimeout(() => rechazar(new Error(`El asistente no respondió en ${ms / 1000} segundos`)), ms);
+  });
+  return Promise.race([promesa, vencimiento]).finally(() => clearTimeout(temporizador));
 }

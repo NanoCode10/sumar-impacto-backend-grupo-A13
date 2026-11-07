@@ -1,8 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { validarMensaje, preguntaParaAsistente, crearLimitador, crearPresencia, LARGO_MAXIMO } from "../sockets/chat.js";
-import { crearAsistente } from "../services/asistente.js";
+import {
+  validarMensaje,
+  preguntaParaAsistente,
+  crearCupo,
+  crearPresencia,
+  diaArgentina,
+  LARGO_MAXIMO
+} from "../sockets/chat.js";
+import { crearAsistente, conTiempoMaximo } from "../services/asistente.js";
 
 /**
  * CHAT: las reglas que se aplican a lo que llega por el socket. No hace falta ni
@@ -25,12 +32,39 @@ test("preguntaParaAsistente detecta el prefijo @gemini (sin importar mayúsculas
   assert.equal(preguntaParaAsistente("hola @gemini"), null);
 });
 
-test("crearLimitador permite una consulta por usuario cada tanto tiempo, y cada usuario tiene su cuenta", () => {
-  const limitador = crearLimitador(15000);
-  assert.equal(limitador.puede("ana", 0), true);
-  assert.equal(limitador.puede("ana", 10000), false);
-  assert.equal(limitador.puede("beto", 10000), true);
-  assert.equal(limitador.puede("ana", 15000), true);
+// Para los tests del cupo, el "día" es la hora (en ms) dividida por un día: controlable.
+const DIA_MS = 24 * 60 * 60 * 1000;
+const diaDePrueba = (fecha) => String(Math.floor(fecha.getTime() / DIA_MS));
+
+test("cupo: una consulta cada tanto tiempo por usuario, y cada usuario tiene su cuenta", () => {
+  const cupo = crearCupo({ esperaMs: 15000, porUsuarioPorDia: 10, totalPorDia: 50 }, diaDePrueba);
+  assert.equal(cupo.consumir("ana", 0).ok, true);
+  assert.match(cupo.consumir("ana", 10000).motivo, /Esperá unos segundos/);
+  assert.equal(cupo.consumir("beto", 10000).ok, true);
+  assert.equal(cupo.consumir("ana", 15000).ok, true);
+});
+
+test("cupo: tope diario por usuario y tope diario total; al cambiar el día se renuevan", () => {
+  const cupo = crearCupo({ esperaMs: 0, porUsuarioPorDia: 2, totalPorDia: 3 }, diaDePrueba);
+  assert.equal(cupo.consumir("ana", 1).ok, true);
+  assert.equal(cupo.consumir("ana", 2).ok, true);
+  assert.match(cupo.consumir("ana", 3).motivo, /límite de 2 consultas diarias/);
+
+  assert.equal(cupo.consumir("beto", 4).ok, true); // tercera del día: llega al total
+  assert.match(cupo.consumir("carla", 5).motivo, /límite de consultas por hoy/);
+
+  assert.equal(cupo.consumir("ana", DIA_MS + 1).ok, true, "día nuevo: se renueva");
+});
+
+test("el día del cupo es el de Argentina, no el de UTC (a las 22 h de Argentina sigue siendo hoy)", () => {
+  // 7/11/2026 22:30 en Argentina = 8/11/2026 01:30 UTC
+  assert.equal(diaArgentina(new Date("2026-11-08T01:30:00Z")), "2026-11-07");
+});
+
+test("conTiempoMaximo deja de esperar a una respuesta que no llega", async () => {
+  const nuncaResponde = new Promise(() => {});
+  await assert.rejects(conTiempoMaximo(nuncaResponde, 50), /no respondió en/);
+  assert.equal(await conTiempoMaximo(Promise.resolve("ok"), 50), "ok");
 });
 
 test("sin GEMINI_API_KEY el asistente queda no configurado y no consulta a nadie", async () => {

@@ -62,7 +62,8 @@ socket.on("conectados", (cantidad) => {
 
 socket.on("asistente", ({ configurado, prefijo }) => {
   ayuda.textContent = configurado
-    ? `Mensajes en tiempo real entre los usuarios del sistema. Para consultar al asistente, empezá el mensaje con ${prefijo}.`
+    ? `Mensajes en tiempo real entre los usuarios del sistema. Para consultar al asistente, empezá el mensaje con ${prefijo}. ` +
+      "Esas consultas se envían a Google: no incluyas datos personales."
     : "Mensajes en tiempo real entre los usuarios del sistema. El asistente no está configurado en este servidor.";
 });
 
