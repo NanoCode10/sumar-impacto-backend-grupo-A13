@@ -44,14 +44,25 @@ async function cargarOrganizaciones() {
   const organizaciones = await pedir(API_ORGANIZACIONES);
 
   organizacionesPorOpcion.clear();
-  const opciones = organizaciones.map((org) => {
-    organizacionesPorOpcion.set(String(org.id), org);
-    // Se muestra el estado para que se entienda por qué el backend rechaza
-    // una organización que no está aprobada.
-    return new Option(`${org.name} (${org.status})`, String(org.id));
-  });
+  for (const org of organizaciones) organizacionesPorOpcion.set(String(org.id), org);
 
+  // Sin formulario (rol de consulta) no hay <select>: las organizaciones sólo dan los nombres de la tabla.
+  if (!selectOrganizacion) return;
+
+  // El referente sólo puede elegir su organización (la API igual lo controla).
+  const elegibles = PERMISOS.organizacionPropia
+    ? organizaciones.filter((org) => String(org.id) === PERMISOS.organizacionPropia)
+    : organizaciones;
+
+  // Se muestra el estado para que se entienda por qué el backend rechaza
+  // una organización que no está aprobada.
+  const opciones = elegibles.map((org) => new Option(`${org.name} (${org.status})`, String(org.id)));
   selectOrganizacion.replaceChildren(new Option("-- Elegí una organización --", ""), ...opciones);
+}
+
+// Editar: quien gestiona campañas; el referente, sólo las de su organización. Eliminar: la administración.
+function puedeEditar(camp) {
+  return PERMISOS.campanias && (!PERMISOS.organizacionPropia || String(camp.organizationId) === PERMISOS.organizacionPropia);
 }
 
 function crearFila(camp) {
@@ -61,7 +72,10 @@ function crearFila(camp) {
     celdaEnlace(nombreOrganizacion(camp.organizationId), urlRecurso("/organizations", camp.organizationId)),
     celda(`$${camp.targetAmount}`),
     celdaBadge(camp.status),
-    celdaAcciones(() => editar(camp), () => eliminar(camp))
+    celdaAcciones(
+      puedeEditar(camp) ? () => editar(camp) : null,
+      PERMISOS.eliminarCampanias ? () => eliminar(camp) : null
+    )
   );
   return tr;
 }
@@ -116,7 +130,8 @@ async function eliminar(camp) {
   }
 }
 
-form.addEventListener("submit", async (event) => {
+// Sin permiso de gestión la página no tiene formulario: sólo la tabla.
+form?.addEventListener("submit", async (event) => {
   // Sin esto el navegador enviaría el formulario y recargaría la página.
   event.preventDefault();
 
@@ -162,7 +177,7 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
-btnCancelar.addEventListener("click", () => {
+btnCancelar?.addEventListener("click", () => {
   limpiarFormulario();
   mostrarMensaje("", "");
 });

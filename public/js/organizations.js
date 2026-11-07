@@ -28,7 +28,8 @@ function crearFila(org) {
     celda(org.type),
     celda(org.email),
     celdaBadge(org.status),
-    celdaAcciones(() => editar(org), () => eliminar(org))
+    // Sólo quien gestiona organizaciones ve Editar y Eliminar.
+    PERMISOS.organizaciones ? celdaAcciones(() => editar(org), () => eliminar(org)) : celda("—")
   );
   return tr;
 }
@@ -88,7 +89,8 @@ async function eliminar(org) {
   }
 }
 
-form.addEventListener("submit", async (event) => {
+// Sin permiso de gestión la página no tiene formulario: sólo la tabla.
+form?.addEventListener("submit", async (event) => {
   // Sin esto el navegador enviaría el formulario y recargaría la página.
   event.preventDefault();
 
@@ -125,7 +127,7 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
-btnCancelar.addEventListener("click", () => {
+btnCancelar?.addEventListener("click", () => {
   limpiarFormulario();
   mostrarMensaje("", "");
 });

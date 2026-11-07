@@ -6,28 +6,32 @@ block content
     p La tabla se carga y se actualiza con fetch() contra la API, sin recargar la página.
     p Sólo se pueden registrar donaciones para donantes activos y campañas activas. Una donación registrada no se modifica: si tiene un error, se anula y se registra una nueva.
 
-    form#donation-form
-      h3 Nueva donación
+    //- El formulario sólo para quien puede registrar donaciones (superadmin, administrador).
+    if permisos.donaciones
+      form#donation-form
+        h3 Nueva donación
 
-      label(for="donorId") Donante
-      select#donorId(name="donorId", required)
-        option(value="") Cargando...
+        label(for="donorId") Donante
+        select#donorId(name="donorId", required)
+          option(value="") Cargando...
 
-      label(for="campaignId") Campaña
-      select#campaignId(name="campaignId", required)
-        option(value="") Cargando...
+        label(for="campaignId") Campaña
+        select#campaignId(name="campaignId", required)
+          option(value="") Cargando...
 
-      label(for="grossAmount") Monto bruto
-      input#grossAmount(type="number", name="grossAmount", required, min="0.01", step="0.01")
+        label(for="grossAmount") Monto bruto
+        input#grossAmount(type="number", name="grossAmount", required, min="0.01", step="0.01")
 
-      label(for="paymentMethod") Medio de pago
-      select#paymentMethod(name="paymentMethod", required)
-        option(value="") -- Elegí un medio de pago --
-        each method in paymentMethods
-          option(value=method)= method
+        label(for="paymentMethod") Medio de pago
+        select#paymentMethod(name="paymentMethod", required)
+          option(value="") -- Elegí un medio de pago --
+          each method in paymentMethods
+            option(value=method)= method
 
-      .acciones
-        button(type="submit") Registrar
+        .acciones
+          button(type="submit") Registrar
+    else
+      p Tu rol puede consultar las donaciones; no registrarlas ni anularlas.
 
     p#mensaje(role="status")
 

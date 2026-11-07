@@ -7,7 +7,7 @@ import { Server } from "socket.io";
 
 import { conectarDB } from "./config/db.js";
 import { crearSesion } from "./config/session.js";
-import { revalidarUsuarioDeSesion } from "./middlewares/auth.js";
+import { revalidarUsuarioDeSesion, permisosDe } from "./middlewares/auth.js";
 import { registrarChat } from "./sockets/chat.js";
 import { crearAsistente } from "./services/asistente.js";
 
@@ -53,6 +53,8 @@ app.use(revalidarUsuarioDeSesion);
 // Pasa el usuario activo a res.locals para que las vistas Pug adapten su navegación
 app.use((req, res, next) => {
   res.locals.user = req.session?.user || null;
+  // Qué formularios y botones mostrar (las páginas sólo ofrecen lo que el rol puede hacer)
+  res.locals.permisos = permisosDe(res.locals.user);
   next();
 });
 

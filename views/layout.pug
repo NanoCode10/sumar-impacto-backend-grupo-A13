@@ -207,14 +207,16 @@ html(lang="es")
         padding: 0;
         margin: 0;
       }
-  body
+  //- Los scripts de las páginas leen los permisos de acá para mostrar sólo los botones permitidos.
+  body(data-permisos=JSON.stringify(permisos))
     header
       h1
         a(href="/") SumarImpacto
       nav
-        a(href="/organizations") Organizaciones
-        a(href="/campaigns") Campañas
+        //- Sin sesión, sólo el inicio (con los listados públicos) e Ingresar.
         if user
+          a(href="/organizations") Organizaciones
+          a(href="/campaigns") Campañas
           a(href="/donors") Donantes
           a(href="/donations") Donaciones
           a(href="/chat") Chat

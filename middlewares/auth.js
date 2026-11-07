@@ -48,6 +48,26 @@ export async function revalidarUsuarioDeSesion(req, res, next) {
 }
 
 /**
+ * Qué puede hacer el usuario, para que las páginas muestren sólo eso (formularios y botones).
+ * Es comodidad de la pantalla: la API vuelve a controlar todo (hasRole, propiedad).
+ * Tiene que coincidir con los hasRole de las rutas de la API.
+ */
+const GESTION = ["superadmin", "administrador"];
+
+export function permisosDe(user) {
+  const role = user?.role;
+  return {
+    organizaciones: GESTION.includes(role),
+    campanias: GESTION.includes(role) || role === "organizacion",
+    eliminarCampanias: GESTION.includes(role),
+    // El referente sólo gestiona las campañas de su organización.
+    organizacionPropia: role === "organizacion" ? user.organizationId : null,
+    donantes: GESTION.includes(role),
+    donaciones: GESTION.includes(role)
+  };
+}
+
+/**
  * Lo único de la API que se puede usar sin sesión. Todo lo demás la exige
  * (denegar por defecto): una ruta nueva nace protegida aunque alguien se olvide
  * de ponerle un control. Las rutas son relativas a /api.

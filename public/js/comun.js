@@ -76,11 +76,17 @@ function boton(texto, alHacerClic) {
   return btn;
 }
 
-/** Celda con los botones Editar y Eliminar de una fila. */
+/**
+ * Qué puede hacer el usuario en esta página (lo deja el servidor en <body data-permisos>).
+ * Sólo decide qué botones mostrar: la API vuelve a controlar cada pedido.
+ */
+const PERMISOS = JSON.parse(document.body.dataset.permisos || "{}");
+
+/** Celda con los botones Editar y Eliminar de una fila; si uno es null, no se muestra. */
 function celdaAcciones(alEditar, alEliminar) {
   const td = document.createElement("td");
-  td.appendChild(boton("Editar", alEditar));
-  td.appendChild(boton("Eliminar", alEliminar));
+  if (alEditar) td.appendChild(boton("Editar", alEditar));
+  if (alEliminar) td.appendChild(boton("Eliminar", alEliminar));
   return td;
 }
 

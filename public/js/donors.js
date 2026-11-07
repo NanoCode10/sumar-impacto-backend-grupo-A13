@@ -14,7 +14,8 @@ function crearFila(donor) {
     celda(donor.email),
     celda(donor.isMember ? "Sí" : "No"),
     celdaBadge(donor.status),
-    celdaAcciones(() => editar(donor), () => eliminar(donor))
+    // Sólo quien gestiona donantes ve Editar y Eliminar.
+    PERMISOS.donantes ? celdaAcciones(() => editar(donor), () => eliminar(donor)) : celda("—")
   );
   return tr;
 }
@@ -71,7 +72,8 @@ async function eliminar(donor) {
   }
 }
 
-form.addEventListener("submit", async (event) => {
+// Sin permiso de gestión la página no tiene formulario: sólo la tabla.
+form?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const id = form.elements.id.value;
@@ -101,7 +103,7 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
-btnCancelar.addEventListener("click", () => {
+btnCancelar?.addEventListener("click", () => {
   limpiarFormulario();
   mostrarMensaje("", "");
 });

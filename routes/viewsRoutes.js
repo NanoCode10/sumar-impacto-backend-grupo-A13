@@ -21,11 +21,13 @@ router.get("/login", renderLogin);
 // Chat interno: sólo con sesión (la conexión de Socket.IO también la exige)
 router.get("/chat", requireAuthView, renderChat);
 
-// Páginas de gestión de recursos
-router.get("/organizations", renderOrganizations);
+// Públicas (sólo lectura): el inicio y las fichas de cada organización y campaña.
 router.get("/organizations/:id", validateId, renderOrganization);
-router.get("/campaigns", renderCampaigns);
 router.get("/campaigns/:id", validateId, renderCampaign);
+
+// Páginas de gestión: con sesión. Cada una muestra sólo lo que el rol puede hacer.
+router.get("/organizations", requireAuthView, renderOrganizations);
+router.get("/campaigns", requireAuthView, renderCampaigns);
 
 // Página de gestión de usuarios: reservada para superadmin autenticado
 router.get(

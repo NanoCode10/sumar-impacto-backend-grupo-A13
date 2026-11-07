@@ -33,6 +33,9 @@ async function cargarReferencias() {
   for (const donante of donantes) donantesPorId.set(String(donante.id), donante);
   for (const campania of campanias) campaniasPorId.set(String(campania.id), campania);
 
+  // Sin formulario (rol de consulta) no hay selects: los datos sólo dan los nombres de la tabla.
+  if (!selectDonante) return;
+
   const donantesActivos = donantes.filter((donante) => donante.status === "activo");
   const campaniasActivas = campanias.filter((campania) => campania.status === "activa");
 
@@ -56,10 +59,10 @@ function nombreCampania(id) {
   return campania ? campania.title : `Campaña ${id}`;
 }
 
-// Sólo una donación acreditada se puede anular.
+// Sólo una donación acreditada se puede anular, y sólo quien gestiona donaciones.
 function celdaAnular(donacion) {
   const td = document.createElement("td");
-  if (donacion.status === "acreditada") {
+  if (PERMISOS.donaciones && donacion.status === "acreditada") {
     td.appendChild(boton("Anular", () => anular(donacion)));
   }
   return td;
@@ -106,7 +109,8 @@ async function anular(donacion) {
   }
 }
 
-form.addEventListener("submit", async (event) => {
+// Sin permiso de gestión la página no tiene formulario: sólo la tabla.
+form?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const body = {
