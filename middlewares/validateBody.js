@@ -274,7 +274,8 @@ function validateUser(mode) {
     const body = req.body ?? {};
 
     if (mode === "create") {
-      const missing = missingFields(body, ["username", "name", "email", "password"]);
+      // El rol es obligatorio: nadie recibe permisos por omisión.
+      const missing = missingFields(body, ["username", "name", "email", "password", "role"]);
       if (missing.length > 0) {
         return invalid(res, `Faltan campos obligatorios: ${missing.join(", ")}`);
       }
@@ -329,6 +330,12 @@ function validateUser(mode) {
         return invalid(res, `role inválido. Valores permitidos: ${User.ROLES.join(", ")}`);
       }
       body.role = role;
+    }
+
+    // Organización del referente (rol "organizacion"). null la quita; si viene, tiene que
+    // ser un ObjectId. Que sea obligatoria según el rol y que exista lo resuelve el Model.
+    if (body.organizationId !== undefined && body.organizationId !== null && !esObjectId(body.organizationId)) {
+      return invalid(res, "organizationId debe ser un ObjectId válido (24 caracteres hexadecimales)");
     }
 
     req.body = body;

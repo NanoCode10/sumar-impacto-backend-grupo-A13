@@ -25,6 +25,7 @@
     "name": "Referente Comedor Esperanza",
     "email": "organizacion@sumarimpacto.org",
     "password": "organizacion",
-    "role": "organizacion"
+    "role": "organizacion",
+    "organizationId": 1
   }
 ]

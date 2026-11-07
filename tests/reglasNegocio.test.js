@@ -373,6 +373,7 @@ function datosUsuario(extra = {}) {
     name: "María García",
     email: "maria@sumarimpacto.org",
     password: "clave-segura",
+    role: "administrador",
     ...extra
   };
 }
@@ -383,7 +384,7 @@ test("User.crear guarda sal y hash (PBKDF2), nunca la contraseña, y la respuest
   assert.notEqual(user.passwordHash, "clave-segura");
   assert.match(user.salt, /^[0-9a-f]{32}$/, "sal de 16 bytes en hexadecimal");
   assert.match(user.passwordHash, /^[0-9a-f]{128}$/, "hash de 64 bytes en hexadecimal");
-  assert.equal(user.role, "organizacion", "sin rol, el de menos permisos");
+  assert.equal(user.role, "administrador");
 
   const respuesta = comoRespuesta(user);
   assert.equal(respuesta.passwordHash, undefined);
@@ -693,4 +694,57 @@ test("buscarTodos filtra donantes y donaciones, y excluye borrados lógicos", as
   await Donor.eliminar(otroDonor.id);
   assert.equal((await Donation.buscarTodas()).length, 1);
   assert.equal((await Donor.buscarTodos()).length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Referente de organización (control por propiedad): el vínculo usuario -> organización
+// ---------------------------------------------------------------------------
+
+function datosReferente(extra = {}) {
+  contador += 1;
+  return {
+    username: `referente${contador}`,
+    name: "Referente de prueba",
+    email: `referente${contador}@test.org`,
+    password: "clave12345",
+    ...extra
+  };
+}
+
+test("User.crear: el rol organizacion exige una organización existente (400 si falta, 404 si no existe)", async () => {
+  const sinOrganizacion = await capturarError(User.crear(datosReferente({ role: "organizacion" })));
+  assert.equal(sinOrganizacion.statusCode, 400);
+
+  // Sin rol: no hay rol por defecto, la base lo rechaza (ValidationError, 400 en la API).
+  const sinRol = await capturarError(User.crear(datosReferente()));
+  assert.equal(sinRol.name, "ValidationError");
+
+  const inexistente = await capturarError(
+    User.crear(datosReferente({ role: "organizacion", organizationId: idInexistente() }))
+  );
+  assert.equal(inexistente.statusCode, 404);
+
+  const org = await crearOrganizacion("aprobada");
+  const referente = await User.crear(datosReferente({ role: "organizacion", organizationId: org.id }));
+  assert.equal(comoRespuesta(referente).organizationId, org.id);
+});
+
+test("User.crear: los demás roles no llevan organización aunque se envíe", async () => {
+  const org = await crearOrganizacion("aprobada");
+  const admin = await User.crear(datosReferente({ role: "administrador", organizationId: org.id }));
+  assert.equal(admin.organizationId, null);
+});
+
+test("User.actualizar: pasar a organizacion exige organización; dejar de serlo la quita", async () => {
+  const org = await crearOrganizacion("aprobada");
+  const admin = await User.crear(datosReferente({ role: "administrador" }));
+
+  const sinOrganizacion = await capturarError(User.actualizar(admin.id, { role: "organizacion" }));
+  assert.equal(sinOrganizacion.statusCode, 400);
+
+  const referente = await User.actualizar(admin.id, { role: "organizacion", organizationId: org.id });
+  assert.equal(referente.organizationId.toString(), org.id);
+
+  const deVueltaAdmin = await User.actualizar(admin.id, { role: "administrador" });
+  assert.equal(deVueltaAdmin.organizationId, null);
 });

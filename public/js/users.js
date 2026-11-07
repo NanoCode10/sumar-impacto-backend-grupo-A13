@@ -17,14 +17,40 @@ const form = document.getElementById("user-form");
 const tbody = document.getElementById("user-tbody");
 const tituloForm = document.getElementById("form-titulo");
 const btnCancelar = document.getElementById("btn-cancelar");
+const campoOrganizacion = document.getElementById("campo-organizacion");
+
+// id de organización -> nombre, para mostrarla en la tabla.
+const nombresDeOrganizaciones = new Map();
+
+/** La organización sólo corresponde al rol "organizacion" (referente). */
+function actualizarCampoOrganizacion() {
+  const esReferente = form.elements.role.value === "organizacion";
+  campoOrganizacion.hidden = !esReferente;
+  form.elements.organizationId.required = esReferente;
+}
+
+/** Carga las organizaciones en el desplegable (como opciones de texto, nunca HTML). */
+async function cargarOrganizaciones() {
+  try {
+    const organizaciones = await pedir("/api/organizations");
+    for (const org of organizaciones) {
+      nombresDeOrganizaciones.set(org.id, org.name);
+      form.elements.organizationId.append(new Option(org.name, org.id));
+    }
+  } catch (err) {
+    mostrarMensaje(`No se pudieron cargar las organizaciones: ${err.message}`, "error");
+  }
+}
 
 function crearFila(user) {
   const tr = document.createElement("tr");
+  const organizacion = user.organizationId ? nombresDeOrganizaciones.get(user.organizationId) ?? "(no encontrada)" : "—";
   tr.append(
     celda(user.username),
     celda(user.name),
     celda(user.email),
     celdaBadge(user.role),
+    celda(organizacion),
     celdaAcciones(() => editar(user), () => eliminar(user))
   );
   return tr;
@@ -36,7 +62,7 @@ async function cargarUsuarios() {
     const usuarios = await pedir(API);
 
     if (usuarios.length === 0) {
-      filaUnica(tbody, "Sin usuarios registrados.", 5);
+      filaUnica(tbody, "Sin usuarios registrados.", 6);
       return;
     }
     tbody.replaceChildren(...usuarios.map(crearFila));
@@ -53,6 +79,7 @@ function limpiarFormulario() {
   form.elements.password.required = true;
   tituloForm.textContent = "Nuevo usuario";
   btnCancelar.hidden = true;
+  actualizarCampoOrganizacion();
 }
 
 /** Carga los datos del usuario en el formulario para editarlo. */
@@ -63,6 +90,8 @@ function editar(user) {
   form.elements.name.value = user.name;
   form.elements.email.value = user.email;
   form.elements.role.value = user.role;
+  form.elements.organizationId.value = user.organizationId ?? "";
+  actualizarCampoOrganizacion();
   form.elements.password.value = "";
   form.elements.password.required = false;
   tituloForm.textContent = `Editando: ${user.username}`;
@@ -96,7 +125,9 @@ form.addEventListener("submit", async (event) => {
   const body = {
     name: form.elements.name.value,
     email: form.elements.email.value,
-    role: form.elements.role.value
+    role: form.elements.role.value,
+    // Sólo el referente lleva organización; para los demás roles se manda null (se quita).
+    organizationId: form.elements.role.value === "organizacion" ? form.elements.organizationId.value : null
   };
   // En el alta van username y contraseña; en la edición, la contraseña sólo si
   // se escribió una nueva.
@@ -127,5 +158,8 @@ btnCancelar.addEventListener("click", () => {
   mostrarMensaje("", "");
 });
 
+form.elements.role.addEventListener("change", actualizarCampoOrganizacion);
+
 limpiarFormulario();
-cargarUsuarios();
+// Primero las organizaciones: la tabla de usuarios muestra sus nombres.
+cargarOrganizaciones().then(cargarUsuarios);

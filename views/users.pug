@@ -22,9 +22,17 @@ block content
       input#password(type="password", name="password", minlength="8", autocomplete="new-password")
 
       label(for="role") Rol
-      select#role(name="role")
+      select#role(name="role", required)
+        option(value="") -- Elegí un rol --
         each role in roles
-          option(value=role, selected=(role === "organizacion"))= role
+          option(value=role)= role
+
+      //- Sólo para el rol organizacion: la organización de la que es referente.
+      //- Las opciones las carga public/js/users.js desde /api/organizations.
+      #campo-organizacion
+        label(for="organizationId") Organización (referente)
+        select#organizationId(name="organizationId")
+          option(value="") -- Elegí una organización --
 
       .acciones
         button(type="submit") Guardar
@@ -40,10 +48,11 @@ block content
         th Nombre
         th Email
         th Rol
+        th Organización
         th Acciones
     tbody#user-tbody
       tr
-        td(colspan="5") Cargando...
+        td(colspan="6") Cargando...
 
   p
     a(href="/") Volver al inicio

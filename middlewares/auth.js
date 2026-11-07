@@ -15,7 +15,9 @@ export function datosDeSesion(user) {
     username: user.username,
     name: user.name,
     email: user.email,
-    role: user.role
+    role: user.role,
+    // Sólo el rol "organizacion" la tiene: es lo que controla restringirAOrganizacionPropia.
+    organizationId: user.organizationId ? user.organizationId.toString() : null
   };
 }
 

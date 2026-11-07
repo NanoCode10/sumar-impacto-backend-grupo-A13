@@ -30,8 +30,8 @@ import User from "../models/User.js";
  * conocidas (documentadas en el README). En el JSON van sin hashear porque son
  * datos de prueba; User.crear las hashea al cargarlas y en la base queda sólo el hash.
  *
- * En los JSON las campañas apuntan a su organización con un id numérico
- * (organizationId: 1). En MongoDB los ids son ObjectId: por eso se arma una tabla
+ * En los JSON las campañas y el usuario referente apuntan a su organización con un
+ * id numérico (organizationId: 1). En MongoDB los ids son ObjectId: por eso se arma una tabla
  * "id del JSON -> ObjectId" para guardar cada campaña con el ObjectId correcto.
  *
  * La base es la de MONGO_URI (.env). Para probarlo en otra base sin tocar la de
@@ -68,7 +68,7 @@ async function cargarOrganizaciones(organizaciones, idsNuevos, resumen) {
   }
 }
 
-async function cargarUsuarios(usuarios, resumen) {
+async function cargarUsuarios(usuarios, idsNuevos, resumen) {
   for (const dato of usuarios) {
     const existe =
       (await User.exists({ username: dato.username.toLowerCase() })) ||
@@ -79,7 +79,9 @@ async function cargarUsuarios(usuarios, resumen) {
       continue;
     }
 
-    await User.crear(dato);
+    // El referente se guarda con el ObjectId de su organización (id del JSON -> ObjectId).
+    const organizationId = dato.organizationId !== undefined ? idsNuevos.get(dato.organizationId) : undefined;
+    await User.crear({ ...dato, organizationId });
     resumen.creadas += 1;
     console.log(`  + Usuario creado: ${dato.username} (${dato.role})`);
   }
@@ -161,7 +163,7 @@ async function main() {
   await cargarCampanias(campanias, idsNuevos, resumenCampanias);
 
   console.log("Usuarios:");
-  await cargarUsuarios(usuarios, resumenUsuarios);
+  await cargarUsuarios(usuarios, idsNuevos, resumenUsuarios);
 
   console.log("\nResumen:");
   console.log(`  Organizaciones -> creadas: ${resumenOrganizaciones.creadas}, omitidas: ${resumenOrganizaciones.omitidas}`);

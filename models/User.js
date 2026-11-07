@@ -81,8 +81,17 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: { values: ROLES, message: `role inválido. Valores permitidos: ${ROLES.join(", ")}` },
-      // Mínimo privilegio: si no se indica, el rol con menos permisos.
-      default: "organizacion"
+      // Sin valor por defecto: los usuarios los da de alta un superadmin, que elige el rol.
+      // Nadie recibe permisos por omisión (denegar por defecto).
+      required: [true, "role es obligatorio"]
+    },
+    // Organización de la que es referente. Sólo para el rol "organizacion" (obligatoria
+    // en ese rol); en los demás queda en null. Es el dato del control por propiedad:
+    // el referente gestiona sólo las campañas de su organización.
+    organizationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      default: null
     }
   },
   {
@@ -139,6 +148,27 @@ function conflictoPorDuplicado(err) {
 }
 
 /**
+ * Organización del usuario según su rol: obligatoria y existente para "organizacion"
+ * (400 si falta, 404 si no existe); null para cualquier otro rol.
+ */
+async function organizacionSegunRol(role, organizationId) {
+  if (role !== "organizacion") {
+    return null;
+  }
+  if (!organizationId) {
+    const err = new Error("organizationId es obligatorio para el rol organizacion");
+    err.statusCode = 400;
+    throw err;
+  }
+  if (!(await Organization.exists({ _id: organizationId }))) {
+    const err = new Error("La organización indicada no existe");
+    err.statusCode = 404;
+    throw err;
+  }
+  return organizationId;
+}
+
+/**
  * Usuarios ordenados por fecha de alta. Sin filtros, todos.
  * @param {{role?: string}} filtros
  */
@@ -151,9 +181,10 @@ userSchema.statics.buscarTodos = function (filtros = {}) {
  * Regla: username y email únicos (409). Se comprueba antes de guardar para dar
  * un mensaje claro; el índice único de la base es la garantía final.
  */
-userSchema.statics.crear = async function ({ username, name, email, password, role }) {
+userSchema.statics.crear = async function ({ username, name, email, password, role, organizationId }) {
   const usernameNormal = username.trim().toLowerCase();
   const emailNormal = email.trim().toLowerCase();
+  const organizacion = await organizacionSegunRol(role, organizationId);
 
   for (const [campo, valor] of [["username", usernameNormal], ["email", emailNormal]]) {
     if (await this.exists({ [campo]: valor })) {
@@ -163,7 +194,15 @@ userSchema.statics.crear = async function ({ username, name, email, password, ro
 
   const { salt, passwordHash } = this.crearPasswordSeguro(password);
   try {
-    return await this.create({ username: usernameNormal, name, email: emailNormal, passwordHash, salt, role });
+    return await this.create({
+      username: usernameNormal,
+      name,
+      email: emailNormal,
+      passwordHash,
+      salt,
+      role,
+      organizationId: organizacion
+    });
   } catch (err) {
     throw conflictoPorDuplicado(err);
   }
@@ -182,10 +221,18 @@ async function comprobarNoEsUltimoSuperadmin(Modelo, mensaje) {
  * no se modifica: es la identidad del usuario. Devuelve el usuario actualizado,
  * o null si no existe.
  */
-userSchema.statics.actualizar = async function (id, { name, email, role, password }) {
+userSchema.statics.actualizar = async function (id, { name, email, role, password, organizationId }) {
   const user = await this.findById(id);
   if (!user) {
     return null;
+  }
+
+  // La organización se revisa con el rol que va a quedar: si pasa a "organizacion"
+  // necesita una; si deja de serlo, se le quita.
+  if (role !== undefined || organizationId !== undefined) {
+    const rolFinal = role ?? user.role;
+    const organizacionFinal = organizationId !== undefined ? organizationId : user.organizationId;
+    user.organizationId = await organizacionSegunRol(rolFinal, organizacionFinal);
   }
 
   if (role !== undefined && user.role === "superadmin" && role !== "superadmin") {

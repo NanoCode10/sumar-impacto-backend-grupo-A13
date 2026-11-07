@@ -39,9 +39,9 @@ async function getUserById(req, res, next) {
  */
 async function createUser(req, res, next) {
   try {
-    const { username, name, email, password, role } = req.body;
+    const { username, name, email, password, role, organizationId } = req.body;
 
-    const newUser = await User.crear({ username, name, email, password, role });
+    const newUser = await User.crear({ username, name, email, password, role, organizationId });
     res.status(201).json(newUser);
   } catch (err) {
     next(err);
@@ -53,9 +53,9 @@ async function createUser(req, res, next) {
  */
 async function updateUser(req, res, next) {
   try {
-    const { name, email, role, password } = req.body;
+    const { name, email, role, password, organizationId } = req.body;
 
-    const user = await User.actualizar(req.params.id, { name, email, role, password });
+    const user = await User.actualizar(req.params.id, { name, email, role, password, organizationId });
     if (!user) {
       return res.status(404).json({ error: "Usuario no encontrado" });
     }

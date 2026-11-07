@@ -62,9 +62,16 @@ test("validateUser acepta un usuario válido y normaliza username, email y role"
   assert.equal(req.body.role, "auditoria");
 });
 
-test("validateUser acepta el rol omitido (el modelo pone el de menos permisos)", () => {
+test("validateUser exige el rol al crear: nadie recibe permisos por omisión", () => {
   const { role, ...body } = usuarioValido();
-  assert.equal(ejecutar(validateUser("create"), body).siguienteLlamado, true);
+  probarError(validateUser("create"), body, /Faltan campos obligatorios: role/);
+});
+
+test("validateUser acepta organizationId como ObjectId o null, y rechaza otro formato", () => {
+  const conOrganizacion = { ...usuarioValido(), role: "organizacion", organizationId: "64b7f0c2a1b2c3d4e5f60718" };
+  assert.equal(ejecutar(validateUser("create"), conOrganizacion).siguienteLlamado, true);
+  assert.equal(ejecutar(validateUser("update"), { organizationId: null }).siguienteLlamado, true);
+  probarError(validateUser("create"), { ...usuarioValido(), organizationId: "123" }, /organizationId debe ser un ObjectId/);
 });
 
 test("validateUser exige los campos obligatorios en modo create", () => {
