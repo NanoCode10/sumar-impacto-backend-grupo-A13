@@ -64,7 +64,7 @@ contraseñas fuertes antes de publicar el sitio.
 npm install                                  # dependencias
 npm run setup                                # crea .env (MongoDB local) con un SESSION_SECRET al azar
 npm run seed -- --confirm-db=sumarimpacto    # datos de ejemplo
-npm test                                     # 147 pruebas
+npm test                                     # 151 pruebas
 npm run dev                                  # servidor en http://localhost:3000
 ```
 
@@ -139,6 +139,9 @@ Navegador ─Socket.IO▶ chat  ─▶ misma sesión ─▶ sockets/chat.js ─�
 
 La **API** (`/api/...`) responde siempre JSON; las **vistas** responden HTML. Las reglas están en el
 servidor: el JavaScript del navegador sólo muestra datos y manda pedidos.
+
+**Páginas públicas** (sólo lectura): el inicio y las fichas de cada organización y campaña. Las páginas
+de gestión piden iniciar sesión y muestran sólo los formularios y botones que el rol puede usar.
 
 ### Roles y permisos
 
@@ -254,7 +257,7 @@ página `error.pug` en las vistas; un error inesperado responde 500 sin detalles
 ## Pruebas
 
 ```bash
-npm test     # node --test: 147 pruebas
+npm test     # node --test: 151 pruebas
 ```
 
 Con `node:test` y `node:assert/strict`, sin dependencias externas. Los tests de reglas de negocio usan
@@ -268,6 +271,7 @@ de limpiarla. Necesitan el servicio de MongoDB en ejecución.
 | `revalidarSesion.test.js` | 4 | Baja y cambio de rol rigen al instante |
 | `login.test.js` | 2 | Regeneración de la sesión al iniciarla |
 | `propiedad.test.js` | 7 | El referente gestiona sólo las campañas de su organización |
+| `permisos.test.js` | 4 | Qué formularios y botones ve cada rol en las páginas |
 | `chat.test.js` | 8 | Validación de mensajes, `@gemini`, cupo diario, presencia y tiempo máximo |
 | `reglasNegocio.test.js` | 46 | Reglas 404/409, borrado lógico, usuarios, donantes y donaciones contra MongoDB |
 | `validateId.test.js` | 10 | Ids ObjectId |
