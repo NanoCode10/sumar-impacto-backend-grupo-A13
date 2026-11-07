@@ -60,6 +60,11 @@ app.use((req, res, next) => {
 app.set("view engine", "pug");
 app.set("views", path.join(__dirname, "views"));
 
+// Versión de los scripts del navegador (las vistas piden /js/x.js?v=...). Cambia en cada
+// despliegue, así el navegador baja el archivo nuevo en lugar de usar el que tenía guardado.
+// En Render es el commit publicado (RENDER_GIT_COMMIT); en local, la hora de arranque.
+app.locals.versionEstaticos = (process.env.RENDER_GIT_COMMIT || Date.now().toString(36)).slice(0, 12);
+
 // Archivos estáticos (JS del navegador que usa fetch contra la API). Middleware incorporado en Express.
 app.use(express.static(path.join(__dirname, "public")));
 

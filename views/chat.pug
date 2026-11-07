@@ -34,6 +34,6 @@ block content
     .chat .chat-envio input { flex: 1; min-width: 0; }
 
   //- Primero el cliente que publica el propio servidor de Socket.IO; después el script de la página.
-  script(src="/js/comun.js")
+  script(src=`/js/comun.js?v=${versionEstaticos}`)
   script(src="/socket.io/socket.io.js")
-  script(src="/js/chat.js")
+  script(src=`/js/chat.js?v=${versionEstaticos}`)
