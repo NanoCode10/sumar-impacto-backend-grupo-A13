@@ -1,10 +1,10 @@
 import express from "express";
-import session from "express-session";
 import dotenv from "dotenv";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { conectarDB } from "./config/db.js";
+import { crearSesion } from "./config/session.js";
 
 import apiRoutes from "./routes/apiRoutes.js";
 import viewsRoutes from "./routes/viewsRoutes.js";
@@ -24,19 +24,20 @@ const PORT = process.env.PORT || 3000;
 // Middleware incorporado en Express para parsear el cuerpo de las solicitudes entrantes en formato JSON
 app.use(express.json());
 
-// Manejo de sesiones de usuario con express-session (Entrega 3)
-app.use(
-  session({
-    secret: process.env.SESSION_SECRET || "sumarimpacto_clave_secreta_para_sesiones_2026",
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      maxAge: 1000 * 60 * 60 * 24, // 24 horas de duración
-      sameSite: "lax"
-    }
-  })
-);
+// En producción (Render) el HTTPS lo atiende un proxy que le pasa el pedido a la app por
+// HTTP interno. Sin esto, Express cree que la conexión no es segura y no envía la cookie
+// de sesión marcada "secure": el login respondería bien pero no quedaría la sesión.
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
+// Sesiones de usuario guardadas en MongoDB (ver config/session.js)
+try {
+  app.use(crearSesion());
+} catch (err) {
+  console.error(err.message);
+  process.exit(1);
+}
 
 // Pasa el usuario activo a res.locals para que las vistas Pug adapten su navegación
 app.use((req, res, next) => {

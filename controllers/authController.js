@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import { NOMBRE_COOKIE } from "../config/session.js";
 
 /**
  * POST /api/auth/login -> verifica credenciales e inicializa la sesión de usuario.
@@ -43,7 +44,7 @@ function logout(req, res, next) {
     if (err) {
       return next(err);
     }
-    res.clearCookie("connect.sid");
+    res.clearCookie(NOMBRE_COOKIE);
     res.status(200).json({ message: "Sesión cerrada correctamente" });
   });
 }
