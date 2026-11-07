@@ -32,19 +32,20 @@ async function createDonation(req, res, next) {
   }
 }
 
-async function updateDonation(req, res, next) {
-  try {
-    const { donorId, campaignId, grossAmount, paymentMethod } = req.body;
-    const donation = await Donation.actualizar(req.params.id, { donorId, campaignId, grossAmount, paymentMethod });
-    if (!donation) {
-      return res.status(404).json({ error: "Donación no encontrada" });
-    }
-    res.status(200).json(donation);
-  } catch (err) {
-    next(err);
-  }
+/**
+ * PUT /api/donations/:id -> 405. Una donación es un comprobante: no se modifica.
+ * Si tiene un error, se anula (DELETE) y se registra una nueva.
+ */
+function rechazarEdicion(req, res) {
+  res
+    .set("Allow", "GET, DELETE")
+    .status(405)
+    .json({ error: "Una donación no se modifica: anúlela y registre una nueva" });
 }
 
+/**
+ * DELETE /api/donations/:id -> anula la donación (no la borra: sigue consultable).
+ */
 async function deleteDonation(req, res, next) {
   try {
     const donation = await Donation.anular(req.params.id);
@@ -64,4 +65,4 @@ function renderDonations(req, res) {
   });
 }
 
-export { getDonations, getDonationById, createDonation, updateDonation, deleteDonation, renderDonations };
+export { getDonations, getDonationById, createDonation, rechazarEdicion, deleteDonation, renderDonations };

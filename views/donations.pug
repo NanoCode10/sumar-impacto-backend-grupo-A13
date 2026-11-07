@@ -4,15 +4,12 @@ block content
   .card
     h2 Gestión de donaciones
     p La tabla se carga y se actualiza con fetch() contra la API, sin recargar la página.
-    p Sólo se pueden registrar donaciones para donantes activos y campañas activas. La campaña no se puede cambiar al editar.
-    //- El campo de elegir donante debería precargarse y quedar bloqueado o deshabilitado al implementar los usuarios con sesiones.
-    //- Asimismo, bloquearlo en modo edición. 
-    //- El campo de cambiar campaña debería bloquearse en modo edición 
+    p Sólo se pueden registrar donaciones para donantes activos y campañas activas. Una donación registrada no se modifica: si tiene un error, se anula y se registra una nueva.
 
     form#donation-form
-      h3#form-titulo Nueva donación
+      h3 Nueva donación
 
-      label(for="donorId") Donante:
+      label(for="donorId") Donante
       select#donorId(name="donorId", required)
         option(value="") Cargando...
 
@@ -30,8 +27,7 @@ block content
           option(value=method)= method
 
       .acciones
-        button(type="submit") Guardar
-        button#btn-cancelar(type="button", hidden) Cancelar edición
+        button(type="submit") Registrar
 
     p#mensaje(role="status")
 
@@ -40,6 +36,7 @@ block content
     thead
       tr
         th Fecha
+        th Certificado
         th Donante
         th Campaña
         th Monto bruto
@@ -49,7 +46,7 @@ block content
         th Acciones
     tbody#donation-tbody
       tr
-        td(colspan="8") Cargando...
+        td(colspan="9") Cargando...
 
   p
     a(href="/") Volver al inicio

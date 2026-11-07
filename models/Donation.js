@@ -2,12 +2,20 @@ import mongoose from "mongoose";
 import softDelete from "../utils/softDelete.js";
 import Donor from "./Donor.js";
 import Campaign from "./Campaign.js";
+import Counter from "./Counter.js";
 import {
   COMISION_SUMAR_IMPACTO,
   GASTOS_PROCESAMIENTO,
   MEDIOS_PAGO,
   redondearDosDecimales
 } from "../config/parametros.js";
+
+/**
+ * MODELO Donation (Mongoose)
+ * Una donación es un comprobante: una vez acreditada no se modifica. Si hay un error
+ * se ANULA (cambia el estado y queda registrada la fecha) y se registra una nueva.
+ * La anulada sigue consultable: conserva la historia, que es lo que pide la trazabilidad.
+ */
 
 const STATUSES = ["acreditada", "anulada"];
 
@@ -48,14 +56,20 @@ const donationSchema = new mongoose.Schema(
       type: Number,
       required: true
     },
+    // Número de certificado correlativo (CERT-000001, CERT-000002...): único e irrepetible.
     certificateCode: {
       type: String,
-      default: null
+      required: true,
+      unique: true
     },
     status: {
       type: String,
       enum: { values: STATUSES, message: `status inválido. Permitidos: ${STATUSES.join(", ")}` },
       default: "acreditada"
+    },
+    annulledAt: {
+      type: Date,
+      default: null
     }
   },
   {
@@ -77,29 +91,27 @@ const donationSchema = new mongoose.Schema(
 
 donationSchema.plugin(softDelete);
 
+function errorConCodigo(mensaje, statusCode) {
+  const err = new Error(mensaje);
+  err.statusCode = statusCode;
+  return err;
+}
+
 async function comprobarDonanteYCampania(donorId, campaignId) {
   const donor = await Donor.findById(donorId);
   if (!donor) {
-    const err = new Error("El donante indicado no existe");
-    err.statusCode = 404;
-    throw err;
+    throw errorConCodigo("El donante indicado no existe", 404);
   }
   if (donor.status !== "activo") {
-    const err = new Error("El donante no se encuentra activo");
-    err.statusCode = 409;
-    throw err;
+    throw errorConCodigo("El donante no se encuentra activo", 409);
   }
 
   const campaign = await Campaign.findById(campaignId);
   if (!campaign) {
-    const err = new Error("La campaña indicada no existe");
-    err.statusCode = 404;
-    throw err;
+    throw errorConCodigo("La campaña indicada no existe", 404);
   }
   if (campaign.status !== "activa") {
-    const err = new Error(`La campaña está en estado ${campaign.status} y no puede recibir donaciones`);
-    err.statusCode = 409;
-    throw err;
+    throw errorConCodigo(`La campaña está en estado ${campaign.status} y no puede recibir donaciones`, 409);
   }
 }
 
@@ -110,6 +122,15 @@ function calcularImportes(grossAmount, paymentMethod) {
   return { commission, processingFees, netAmount };
 }
 
+// Próximo número de certificado: CERT- y seis dígitos, sin saltos ni repeticiones.
+async function siguienteCertificado() {
+  const numero = await Counter.siguiente("certificados");
+  return `CERT-${String(numero).padStart(6, "0")}`;
+}
+
+/**
+ * Donaciones, la más reciente primero. Incluye las anuladas: se filtran con ?status=.
+ */
 donationSchema.statics.buscarTodas = function (filtros = {}) {
   return this.find(filtros).sort({ _id: -1 });
 };
@@ -119,7 +140,6 @@ donationSchema.statics.crear = async function (datos) {
 
   const grossAmount = datos.grossAmount;
   const importes = calcularImportes(grossAmount, datos.paymentMethod);
-  const certificateCode = `CERT-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   return this.create({
     donorId: datos.donorId,
@@ -127,62 +147,26 @@ donationSchema.statics.crear = async function (datos) {
     grossAmount,
     paymentMethod: datos.paymentMethod,
     ...importes,
-    certificateCode,
+    certificateCode: await siguienteCertificado(),
     status: "acreditada"
   });
 };
 
-donationSchema.statics.actualizar = async function (id, datos) {
-  const donation = await this.findById(id);
-  if (!donation) {
-    return null;
-  }
-
-  if (datos.campaignId !== undefined && datos.campaignId.toString() !== donation.campaignId.toString()) {
-    const err = new Error("Una donación no puede cambiar de campaña (los fondos tienen destino específico)");
-    err.statusCode = 409;
-    throw err;
-  }
-
-  const donorId = datos.donorId ?? donation.donorId;
-  if (datos.donorId !== undefined) {
-    const donor = await Donor.findById(donorId);
-    if (!donor) {
-      const err = new Error("El donante indicado no existe");
-      err.statusCode = 404;
-      throw err;
-    }
-    if (donor.status !== "activo") {
-      const err = new Error("El donante no se encuentra activo");
-      err.statusCode = 409;
-      throw err;
-    }
-  }
-
-  const grossAmount = datos.grossAmount ?? donation.grossAmount;
-  const paymentMethod = datos.paymentMethod ?? donation.paymentMethod;
-  const importes = calcularImportes(grossAmount, paymentMethod);
-
-  return this.findByIdAndUpdate(
-    id,
-    {
-      donorId,
-      grossAmount,
-      paymentMethod,
-      ...importes
-    },
-    { returnDocument: "after", runValidators: true }
-  );
-};
-
+/**
+ * Anula una donación: cambia el estado y registra la fecha. No la borra: sigue
+ * consultable. Devuelve la donación anulada, o null si no existe; 409 si ya lo estaba.
+ */
 donationSchema.statics.anular = async function (id) {
   const donation = await this.findById(id);
   if (!donation) {
     return null;
   }
+  if (donation.status === "anulada") {
+    throw errorConCodigo("La donación ya está anulada", 409);
+  }
 
-  donation.deletedAt = new Date();
   donation.status = "anulada";
+  donation.annulledAt = new Date();
   await donation.save();
   return donation;
 };

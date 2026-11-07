@@ -579,7 +579,7 @@ test("Donation.crear calcula correctamente comisión, pasarela y redondeo", asyn
 
 test("Donation.crear requiere donante activo y campaña activa existentes", async () => {
   const donor = await Donor.crear(datosDonante());
-  const inactiveDonor = await Donor.crear(datosDonante({ email: "inactivo@solidaria.org", status: "inactivo" }));
+  const inactiveDonor = await Donor.crear(datosDonante({ document: "20999888777", email: "inactivo@solidaria.org", status: "inactivo" }));
   const campaign = await crearCampaniaActiva();
   const inexistente = idInexistente();
 
@@ -615,35 +615,21 @@ test("Donation.crear requiere donante activo y campaña activa existentes", asyn
   assert.equal(campaniaNoActiva.statusCode, 409);
 });
 
-test("Donation.actualizar recalcula importes e impide cambiar de campaña", async () => {
+test("Donation.crear numera los certificados en forma correlativa y sin repetir", async () => {
   const donor = await Donor.crear(datosDonante());
   const campaign = await crearCampaniaActiva();
-  const otraCampania = await crearCampaniaActiva();
-  const donation = await Donation.crear({
-    donorId: donor.id,
-    campaignId: campaign.id,
-    grossAmount: 100000,
-    paymentMethod: "transferencia"
-  });
+  const datos = { donorId: donor.id, campaignId: campaign.id, grossAmount: 1000, paymentMethod: "debito" };
 
-  const actualizada = await Donation.actualizar(donation.id, {
-    grossAmount: 50000,
-    paymentMethod: "credito",
-    commission: 0,
-    processingFees: 0,
-    netAmount: 50000
-  });
-  assert.equal(actualizada.grossAmount, 50000);
-  assert.equal(actualizada.commission, 1750);
-  assert.equal(actualizada.processingFees, 1214);
-  assert.equal(actualizada.netAmount, 47036);
-
-  const error = await capturarError(Donation.actualizar(donation.id, { campaignId: otraCampania.id }));
-  assert.equal(error.statusCode, 409);
-  assert.equal((await Donation.findById(donation.id)).campaignId.toString(), campaign.id);
+  const codigos = [];
+  for (let i = 0; i < 3; i += 1) {
+    codigos.push((await Donation.crear(datos)).certificateCode);
+  }
+  const numeros = codigos.map((codigo) => Number(codigo.replace("CERT-", "")));
+  assert.match(codigos[0], /^CERT-\d{6}$/);
+  assert.deepEqual(numeros, [numeros[0], numeros[0] + 1, numeros[0] + 2]);
 });
 
-test("Donation.eliminar es lógico y anula el estado; Donor.eliminar deja inactivo", async () => {
+test("Donation.anular cambia el estado sin borrar: la anulada sigue consultable; anular dos veces da 409", async () => {
   const donor = await Donor.crear(datosDonante());
   const campaign = await crearCampaniaActiva();
   const donation = await Donation.crear({
@@ -654,11 +640,34 @@ test("Donation.eliminar es lógico y anula el estado; Donor.eliminar deja inacti
   });
 
   await Donation.anular(donation.id);
-  assert.equal(await Donation.findById(donation.id), null);
-  const donationGuardada = await leerSinFiltro(Donation, donation.id);
-  assert.ok(donationGuardada.deletedAt instanceof Date);
-  assert.equal(donationGuardada.status, "anulada");
+  const anulada = await Donation.findById(donation.id);
+  assert.equal(anulada.status, "anulada");
+  assert.ok(anulada.annulledAt instanceof Date);
+  assert.equal(anulada.deletedAt, null);
+  assert.equal((await Donation.buscarTodas({ status: "anulada" })).length, 1);
 
+  assert.equal((await capturarError(Donation.anular(donation.id))).statusCode, 409);
+});
+
+test("Donor y Campaign con donaciones (aunque estén anuladas) no se eliminan (409)", async () => {
+  const donor = await Donor.crear(datosDonante());
+  const campaign = await crearCampaniaActiva();
+  const donation = await Donation.crear({
+    donorId: donor.id,
+    campaignId: campaign.id,
+    grossAmount: 1000,
+    paymentMethod: "debito"
+  });
+  await Donation.anular(donation.id);
+
+  assert.equal((await capturarError(Donor.eliminar(donor.id))).statusCode, 409);
+  assert.equal((await capturarError(Campaign.eliminar(campaign.id))).statusCode, 409);
+  assert.ok(await Donor.findById(donor.id));
+  assert.ok(await Campaign.findById(campaign.id));
+});
+
+test("Donor.eliminar sin donaciones es lógico y lo deja inactivo", async () => {
+  const donor = await Donor.crear(datosDonante());
   await Donor.eliminar(donor.id);
   assert.equal(await Donor.findById(donor.id), null);
   const donorGuardado = await leerSinFiltro(Donor, donor.id);
@@ -666,10 +675,22 @@ test("Donation.eliminar es lógico y anula el estado; Donor.eliminar deja inacti
   assert.equal(donorGuardado.status, "inactivo");
 });
 
-test("buscarTodos filtra donantes y donaciones, y excluye borrados lógicos", async () => {
+test("Donor: el documento se guarda normalizado y es único (409), también al editar", async () => {
+  const donor = await Donor.crear(datosDonante({ document: " 30-71234567-8 " }));
+  assert.equal(donor.document, "30712345678");
+
+  const repetido = await capturarError(Donor.crear(datosDonante({ document: "30.712.345.678", email: "otro@x.org" })));
+  assert.equal(repetido.statusCode, 409);
+
+  const otro = await Donor.crear(datosDonante({ document: "20111222333", email: "otro@x.org" }));
+  assert.equal((await capturarError(Donor.actualizar(otro.id, { document: "30-71234567-8" }))).statusCode, 409);
+  assert.equal((await Donor.actualizar(otro.id, { document: "20-11122233-3" })).document, "20111222333");
+});
+
+test("buscarTodos filtra donantes y donaciones; las anuladas se ven con su estado", async () => {
   const donor = await Donor.crear(datosDonante());
   const otroDonor = await Donor.crear(
-    datosDonante({ name: "Persona Solidaria", type: "individual", email: "persona@solidaria.org" })
+    datosDonante({ name: "Persona Solidaria", type: "individual", document: "20111222333", email: "persona@solidaria.org" })
   );
   const campaign = await crearCampaniaActiva();
   const donation = await Donation.crear({
@@ -691,9 +712,8 @@ test("buscarTodos filtra donantes y donaciones, y excluye borrados lógicos", as
   assert.equal((await Donation.buscarTodas({ donorId: donor.id, paymentMethod: "debito" })).length, 1);
 
   await Donation.anular(donation.id);
-  await Donor.eliminar(otroDonor.id);
-  assert.equal((await Donation.buscarTodas()).length, 1);
-  assert.equal((await Donor.buscarTodos()).length, 1);
+  assert.equal((await Donation.buscarTodas()).length, 2);
+  assert.equal((await Donation.buscarTodas({ status: "acreditada" })).length, 1);
 });
 
 // ---------------------------------------------------------------------------

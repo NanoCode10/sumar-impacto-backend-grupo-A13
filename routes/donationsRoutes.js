@@ -7,7 +7,7 @@ import {
   getDonations,
   getDonationById,
   createDonation,
-  updateDonation,
+  rechazarEdicion,
   deleteDonation
 } from "../controllers/donationsController.js";
 
@@ -17,9 +17,10 @@ const router = express.Router();
 router.get("/", validateDonationQuery, getDonations);
 router.get("/:id", validateId, getDonationById);
 
-// Gestión: sólo superadmin y administrador
+// Gestión: sólo superadmin y administrador. Una donación no se edita: se anula (DELETE)
+// y se registra una nueva. El PUT queda para explicarlo con un 405.
 router.post("/", hasRole("superadmin", "administrador"), validateDonation("create"), createDonation);
-router.put("/:id", validateId, hasRole("superadmin", "administrador"), validateDonation("update"), updateDonation);
+router.put("/:id", validateId, hasRole("superadmin", "administrador"), rechazarEdicion);
 router.delete("/:id", validateId, hasRole("superadmin", "administrador"), deleteDonation);
 
 export default router;

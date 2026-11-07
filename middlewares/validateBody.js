@@ -251,6 +251,10 @@ function validateDonation(mode) {
       if (typeof body.grossAmount !== "number" || !Number.isFinite(body.grossAmount) || body.grossAmount <= 0) {
         return invalid(res, "grossAmount debe ser un número mayor a 0");
       }
+      // Pesos con centavos: a lo sumo dos decimales (0,001 no es un importe).
+      if (Math.abs(body.grossAmount * 100 - Math.round(body.grossAmount * 100)) > 1e-6) {
+        return invalid(res, "grossAmount admite a lo sumo dos decimales");
+      }
     }
 
     if (body.paymentMethod !== undefined) {

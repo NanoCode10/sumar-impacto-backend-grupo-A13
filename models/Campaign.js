@@ -132,12 +132,24 @@ campaignSchema.statics.actualizar = async function (id, datos) {
 
 /**
  * Elimina una campaña (borrado lógico). Devuelve la campaña eliminada, o null si
- * no existe o ya estaba eliminada.
+ * no existe o ya estaba eliminada. Si recibió donaciones, incluso anuladas, no se
+ * elimina (409): los fondos tienen destino específico y hay que poder rendirlos.
+ * Se puede cerrar cambiándole el estado.
  */
 campaignSchema.statics.eliminar = async function (id) {
   const campaign = await this.findById(id);
   if (!campaign) {
     return null;
+  }
+
+  // Donation importa Campaign: se toma el modelo ya registrado para no armar un import circular.
+  const cantidad = (await mongoose.models.Donation?.countDocuments({ campaignId: id })) ?? 0;
+  if (cantidad > 0) {
+    const err = new Error(
+      `La campaña «${campaign.title}» tiene ${cantidad} donación(es) y no puede eliminarse; puede cerrarla`
+    );
+    err.statusCode = 409;
+    throw err;
   }
 
   campaign.deletedAt = new Date();

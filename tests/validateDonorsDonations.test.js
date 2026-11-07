@@ -82,6 +82,7 @@ test("validateDonation rechaza ids, monto y medio de pago inválidos", () => {
     { donorId: "mal", campaignId: CAMPAIGN_ID, grossAmount: 10, paymentMethod: "debito" },
     { donorId: DONOR_ID, campaignId: CAMPAIGN_ID, grossAmount: "10", paymentMethod: "debito" },
     { donorId: DONOR_ID, campaignId: CAMPAIGN_ID, grossAmount: 0, paymentMethod: "debito" },
+    { donorId: DONOR_ID, campaignId: CAMPAIGN_ID, grossAmount: 0.001, paymentMethod: "debito" },
     { donorId: DONOR_ID, campaignId: CAMPAIGN_ID, grossAmount: 10, paymentMethod: "efectivo" }
   ];
 
