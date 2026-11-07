@@ -15,12 +15,18 @@ async function login(req, res, next) {
       return res.status(401).json({ error: "Usuario o contraseña incorrectos" });
     }
 
-    // Guarda los datos del usuario en la sesión de Express
-    req.session.user = datosDeSesion(user);
-
-    res.status(200).json({
-      message: "Inicio de sesión exitoso",
-      user: req.session.user
+    // Sesión nueva, con otro identificador, en el momento del login: si alguien había
+    // conseguido que el navegador usara un identificador conocido (fijación de sesión),
+    // ese identificador deja de servir.
+    req.session.regenerate((err) => {
+      if (err) {
+        return next(err);
+      }
+      req.session.user = datosDeSesion(user);
+      res.status(200).json({
+        message: "Inicio de sesión exitoso",
+        user: req.session.user
+      });
     });
   } catch (err) {
     next(err);
