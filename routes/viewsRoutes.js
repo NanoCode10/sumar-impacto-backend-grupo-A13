@@ -39,8 +39,8 @@ router.get(
   renderUsers
 );
 
-// Páginas de gestión de donantes y donaciones
-router.get("/donors", renderDonors);
-router.get("/donations", renderDonations);
+// Páginas de gestión de donantes y donaciones: con sesión, porque muestran datos personales
+router.get("/donors", requireAuthView, renderDonors);
+router.get("/donations", requireAuthView, renderDonations);
 
 export default router;

@@ -214,8 +214,9 @@ html(lang="es")
       nav
         a(href="/organizations") Organizaciones
         a(href="/campaigns") Campañas
-        a(href="/donors") Donantes
-        a(href="/donations") Donaciones
+        if user
+          a(href="/donors") Donantes
+          a(href="/donations") Donaciones
         if user && user.role === 'superadmin'
           a(href="/users") Usuarios
         if user

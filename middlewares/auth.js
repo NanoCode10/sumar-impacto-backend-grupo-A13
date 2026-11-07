@@ -4,6 +4,37 @@
  */
 
 /**
+ * Lo único de la API que se puede usar sin sesión. Todo lo demás la exige
+ * (denegar por defecto): una ruta nueva nace protegida aunque alguien se olvide
+ * de ponerle un control. Las rutas son relativas a /api.
+ */
+const RUTAS_PUBLICAS = [
+  { metodo: "GET", ruta: "/organizations" },
+  { metodo: "GET", ruta: "/campaigns" },
+  { metodo: "POST", ruta: "/auth/login" },
+  { metodo: "POST", ruta: "/auth/logout" },
+  { metodo: "GET", ruta: "/auth/me" }
+];
+
+export function esRutaPublica(metodo, ruta) {
+  return RUTAS_PUBLICAS.some(
+    (p) => p.metodo === metodo && (ruta === p.ruta || ruta.startsWith(`${p.ruta}/`))
+  );
+}
+
+/**
+ * requireLoginSalvoPublicas: se monta una sola vez delante de toda la API.
+ * Sin sesión, responde 401 salvo en las rutas públicas. Los permisos por rol
+ * siguen en cada archivo de rutas (hasRole).
+ */
+export function requireLoginSalvoPublicas(req, res, next) {
+  if (req.session?.user || esRutaPublica(req.method, req.path)) {
+    return next();
+  }
+  return res.status(401).json({ error: "Debe iniciar sesión para realizar esta acción" });
+}
+
+/**
  * isAuthenticated: Verifica que exista una sesión activa con un usuario autenticado.
  * Responde 401 si no hay sesión.
  */

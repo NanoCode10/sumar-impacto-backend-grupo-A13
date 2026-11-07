@@ -6,12 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import { conectarDB } from "./config/db.js";
 
-import organizationsRoutes from "./routes/organizationsRoutes.js";
-import campaignsRoutes from "./routes/campaignsRoutes.js";
-import usersRoutes from "./routes/usersRoutes.js";
-import authRoutes from "./routes/authRoutes.js";
-import donorsRoutes from "./routes/donorsRoutes.js";
-import donationsRoutes from "./routes/donationsRoutes.js";
+import apiRoutes from "./routes/apiRoutes.js";
 import viewsRoutes from "./routes/viewsRoutes.js";
 
 import { notFound, errorHandler } from "./middlewares/errors.js";
@@ -56,13 +51,8 @@ app.set("views", path.join(__dirname, "views"));
 // Archivos estáticos (JS del navegador que usa fetch contra la API). Middleware incorporado en Express.
 app.use(express.static(path.join(__dirname, "public")));
 
-// API REST: responde siempre JSON
-app.use("/api/organizations", organizationsRoutes);
-app.use("/api/campaigns", campaignsRoutes);
-app.use("/api/users", usersRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/donors", donorsRoutes);
-app.use("/api/donations", donationsRoutes);
+// API REST: responde siempre JSON. Exige sesión salvo en las rutas públicas (ver routes/apiRoutes.js)
+app.use("/api", apiRoutes);
 
 // Páginas HTML con Pug: inicio y fichas de detalle
 app.use("/", viewsRoutes);
