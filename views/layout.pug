@@ -4,191 +4,382 @@ html(lang="es")
     meta(charset="UTF-8")
     meta(name="viewport", content="width=device-width, initial-scale=1.0")
     title= title || 'SumarImpacto'
+    link(rel="icon", type="image/png", href="/logo.png")
     style.
+      :root {
+        --brand-blue: #4f8bf9;
+        --brand-blue-dark: #2563eb;
+        --brand-blue-deep: #1e3a8a;
+        --brand-teal: #2f8e84;
+        --brand-teal-dark: #1b675f;
+        --brand-teal-light: #e6f6f4;
+        --brand-coral: #d46b45;
+        --brand-coral-dark: #b84f2b;
+        --brand-coral-light: #fdf2ed;
+        --bg-page: #f8fafc;
+        --bg-card: #ffffff;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --border-light: #e2e8f0;
+      }
+
       body {
-        font-family: system-ui, -apple-system, sans-serif;
-        background-color: #f8fafc;
-        color: #1e293b;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background-color: var(--bg-page);
+        color: var(--text-main);
         margin: 0;
         padding: 0;
         display: flex;
         flex-direction: column;
         min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
       }
+
       header {
-        background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 45%, #1f6e66 100%);
         color: white;
-        padding: 1rem 2rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      }
-      header {
+        padding: 0.85rem 2rem;
+        box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.15);
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
-        gap: 0.75rem;
+        gap: 1rem;
       }
+
       header h1 {
         margin: 0;
-        font-size: 1.5rem;
+        font-size: 1.45rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        line-height: 1;
       }
+
       header h1 a {
         color: white;
         text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.65rem;
+        line-height: 1;
       }
+
+      header h1 a img {
+        height: 1.65rem;
+        width: auto;
+        aspect-ratio: 505 / 471;
+        object-fit: contain;
+        display: block;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+        transition: transform 0.25s ease;
+      }
+
+      header h1 a:hover img {
+        transform: scale(1.08);
+      }
+
       nav {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 1rem;
+        gap: 0.5rem;
         font-size: 0.95rem;
       }
+
       nav a {
+        color: rgba(255, 255, 255, 0.9);
+        text-decoration: none;
+        padding: 0.4rem 0.75rem;
+        border-radius: 6px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+      }
+
+      nav a:hover {
         color: white;
+        background-color: rgba(255, 255, 255, 0.15);
       }
 
       main {
         flex: 1;
-        max-width: 800px;
+        max-width: 860px;
         width: 100%;
         margin: 2rem auto;
-        padding: 0 1rem;
+        padding: 0 1.25rem;
         box-sizing: border-box;
       }
+
       .card {
-        background: white;
-        border-radius: 8px;
-        padding: 1.5rem;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-        border: 1px solid #e2e8f0;
+        background: var(--bg-card);
+        border-radius: 12px;
+        padding: 1.75rem;
+        box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+        border: 1px solid var(--border-light);
       }
+
       .card h2 {
         margin-top: 0;
         color: #0f172a;
-        border-bottom: 2px solid #e2e8f0;
-        padding-bottom: 0.5rem;
+        border-bottom: 2px solid;
+        border-image: linear-gradient(to right, var(--brand-blue), var(--brand-teal), var(--brand-coral), transparent) 1;
+        padding-bottom: 0.65rem;
+        font-size: 1.35rem;
+        letter-spacing: -0.01em;
       }
+
       .field {
         margin-bottom: 1rem;
       }
+
       .field-label {
         font-weight: 600;
-        color: #64748b;
-        font-size: 0.875rem;
+        color: var(--text-muted);
+        font-size: 0.8rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
       }
+
       .field-value {
-        font-size: 1.125rem;
-        color: #1e293b;
+        font-size: 1.1rem;
+        color: var(--text-main);
         margin-top: 0.25rem;
       }
-      /* Distintivo de estado o rol. El color sale del valor (data-estado):
-         verde = habilitado, amarillo = en espera, naranja = en pausa,
-         gris = terminado; los roles usan el azul por defecto. */
+
+      /* Badges inspirados en los tres círculos del logo */
       .badge {
         display: inline-block;
         padding: 0.25rem 0.75rem;
         border-radius: 9999px;
-        font-size: 0.875rem;
-        font-weight: 500;
+        font-size: 0.825rem;
+        font-weight: 600;
         background-color: #dbeafe;
         color: #1e40af;
       }
+
+      /* Verde / Azul Verdoso (Círculo inferior izquierdo del logo) */
       .badge[data-estado="aprobada"], .badge[data-estado="activa"] {
-        background-color: #dcfce7;
-        color: #166534;
+        background-color: var(--brand-teal-light);
+        color: var(--brand-teal-dark);
+        border: 1px solid rgba(47, 142, 132, 0.2);
       }
+
+      /* Terracota / Coral (Círculo inferior derecho del logo) */
       .badge[data-estado="pendiente"], .badge[data-estado="borrador"] {
-        background-color: #fef9c3;
-        color: #854d0e;
+        background-color: var(--brand-coral-light);
+        color: var(--brand-coral-dark);
+        border: 1px solid rgba(212, 107, 69, 0.2);
       }
+
       .badge[data-estado="suspendida"] {
         background-color: #ffedd5;
         color: #9a3412;
       }
+
       .badge[data-estado="desvinculada"], .badge[data-estado="cerrada"] {
-        background-color: #e2e8f0;
+        background-color: #f1f5f9;
         color: #475569;
       }
+
       .section-title {
         margin-top: 2rem;
-        margin-bottom: 0.5rem;
-        color: #1e40af;
-        font-size: 1.1rem;
-        border-bottom: 1px solid #e2e8f0;
-        padding-bottom: 0.25rem;
+        margin-bottom: 0.75rem;
+        color: var(--brand-teal-dark);
+        font-size: 1.15rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
       }
+
+      .section-title::before {
+        content: "";
+        display: inline-block;
+        width: 8px;
+        height: 16px;
+        background: var(--brand-coral);
+        border-radius: 3px;
+      }
+
       .resource-list {
         list-style: none;
         padding: 0;
-        margin: 0 0 1rem 0;
+        margin: 0 0 1.5rem 0;
       }
+
       .resource-item {
-        padding: 0.5rem 0.75rem;
-        border-radius: 6px;
-        margin-bottom: 0.35rem;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        background: #ffffff;
+        border: 1px solid var(--border-light);
         font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
       }
+
+      .resource-item:hover {
+        border-color: var(--brand-teal);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(47, 142, 132, 0.1);
+      }
+
       .resource-item a {
-        color: #2563eb;
+        color: var(--brand-blue-dark);
         text-decoration: none;
       }
+
       .resource-item a:hover {
         text-decoration: underline;
+        color: var(--brand-blue);
       }
+
       .meta {
-        color: #64748b;
+        color: var(--text-muted);
         font-size: 0.875rem;
       }
+
       .empty {
         color: #94a3b8;
         font-style: italic;
+        background: #ffffff;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px dashed var(--border-light);
+        text-align: center;
       }
+
       form label {
         display: block;
-        margin-top: 0.75rem;
+        margin-top: 0.85rem;
         font-weight: 600;
-        font-size: 0.875rem;
-        color: #64748b;
+        font-size: 0.85rem;
+        color: var(--text-muted);
       }
+
       form input, form select, form textarea {
         width: 100%;
-        padding: 0.4rem;
+        padding: 0.55rem 0.75rem;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
         box-sizing: border-box;
+        font-family: inherit;
+        font-size: 0.95rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background-color: #fdfdfd;
       }
+
+      form input:focus, form select:focus, form textarea:focus {
+        outline: none;
+        border-color: var(--brand-blue);
+        box-shadow: 0 0 0 3px rgba(79, 139, 249, 0.2);
+        background-color: #ffffff;
+      }
+
       .acciones {
+        margin-top: 1.25rem;
+        display: flex;
+        gap: 0.5rem;
+      }
+
+      button {
+        cursor: pointer;
+        padding: 0.55rem 1.25rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        border: none;
+      }
+
+      button[type="submit"] {
+        background: linear-gradient(135deg, var(--brand-blue-dark), var(--brand-blue));
+        color: white;
+        box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+      }
+
+      button[type="submit"]:hover {
+        background: linear-gradient(135deg, #1d4ed8, var(--brand-blue-dark));
+        box-shadow: 0 4px 8px rgba(37, 99, 235, 0.35);
+        transform: translateY(-1px);
+      }
+
+      button[type="button"] {
+        background: #f1f5f9;
+        color: #475569;
+        border: 1px solid var(--border-light);
+      }
+
+      button[type="button"]:hover {
+        background: #e2e8f0;
+      }
+
+      #mensaje.ok {
+        color: var(--brand-teal-dark);
+        background-color: var(--brand-teal-light);
+        padding: 0.6rem 0.9rem;
+        border-radius: 6px;
+        font-weight: 500;
+        border-left: 4px solid var(--brand-teal);
         margin-top: 1rem;
       }
-      button {
-        margin-right: 0.35rem;
-        cursor: pointer;
-      }
-      #mensaje.ok {
-        color: #166534;
-      }
+
       #mensaje.error {
-        color: #b91c1c;
+        color: #991b1b;
+        background-color: #fee2e2;
+        padding: 0.6rem 0.9rem;
+        border-radius: 6px;
+        font-weight: 500;
+        border-left: 4px solid #ef4444;
+        margin-top: 1rem;
       }
+
       .tabla {
         width: 100%;
-        border-collapse: collapse;
+        border-collapse: separate;
+        border-spacing: 0;
         background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid var(--border-light);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
       }
-      .tabla th, .tabla td {
-        text-align: left;
-        padding: 0.5rem;
-        border-bottom: 1px solid #e2e8f0;
+
+      .tabla th {
+        background-color: #f8fafc;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-light);
       }
+
+      .tabla td {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid var(--border-light);
+        font-size: 0.95rem;
+      }
+
+      .tabla tr:last-child td {
+        border-bottom: none;
+      }
+
+      .tabla tbody tr:hover {
+        background-color: #fcfdfe;
+      }
+
       footer {
         text-align: center;
-        padding: 1rem;
-        color: #64748b;
+        padding: 1.5rem;
+        color: var(--text-muted);
         font-size: 0.875rem;
-        border-top: 1px solid #e2e8f0;
+        border-top: 1px solid var(--border-light);
         background: white;
+        margin-top: 2rem;
       }
       .checkbox-field {
         display: flex;
@@ -211,7 +402,9 @@ html(lang="es")
   body(data-permisos=JSON.stringify(permisos))
     header
       h1
-        a(href="/") SumarImpacto
+        a(href="/")
+          img(src="/logo.png", alt="Logo SumarImpacto")
+          | SumarImpacto
       nav
         //- Sin sesión, sólo el inicio (con los listados públicos) e Ingresar.
         if user
