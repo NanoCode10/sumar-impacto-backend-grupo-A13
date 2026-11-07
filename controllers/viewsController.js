@@ -34,4 +34,12 @@ function renderLogin(req, res) {
   res.render("login", { title: "Ingresar - SumarImpacto" });
 }
 
-export { renderHome, renderLogin };
+/**
+ * GET /chat  -> chat interno en tiempo real (Socket.IO, ver sockets/chat.js).
+ * Los mensajes no pasan por acá: los maneja el navegador (public/js/chat.js).
+ */
+function renderChat(req, res) {
+  res.render("chat", { title: "Chat - SumarImpacto" });
+}
+
+export { renderHome, renderLogin, renderChat };

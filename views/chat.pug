@@ -1,0 +1,32 @@
+extends layout
+
+block content
+  .card.chat
+    h2 Chat interno
+    p#asistente-ayuda Mensajes en tiempo real entre los usuarios del sistema.
+    p.chat-estado Conectados: #[span#conectados 0]
+
+    ul#mensajes(aria-live="polite")
+    p#aviso(role="status")
+
+    form#chat-form
+      label(for="texto") Mensaje
+      .chat-envio
+        input#texto(type="text", name="texto", maxlength="500", required, autocomplete="off")
+        button(type="submit") Enviar
+
+  style.
+    .chat #mensajes { list-style: none; padding: 0; margin: 1rem 0 0.5rem; height: 55vh; overflow-y: auto;
+      border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; }
+    .chat #mensajes li { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e2e8f0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .chat #mensajes li.asistente { background: #eef4ff; }
+    .chat .autor { font-weight: 600; margin-right: 0.35rem; }
+    .chat .hora { color: #64748b; font-size: 0.8rem; margin-right: 0.35rem; }
+    .chat #aviso { min-height: 1.3em; color: #64748b; font-style: italic; margin: 0; }
+    .chat .chat-envio { display: flex; gap: 0.5rem; }
+    .chat .chat-envio input { flex: 1; min-width: 0; }
+
+  //- Primero el cliente que publica el propio servidor de Socket.IO; después el script de la página.
+  script(src="/js/comun.js")
+  script(src="/socket.io/socket.io.js")
+  script(src="/js/chat.js")

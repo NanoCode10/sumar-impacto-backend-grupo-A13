@@ -2,7 +2,7 @@ import express from "express";
 
 import validateId from "../middlewares/validateId.js";
 import { requireAuthView } from "../middlewares/auth.js";
-import { renderHome, renderLogin } from "../controllers/viewsController.js";
+import { renderHome, renderLogin, renderChat } from "../controllers/viewsController.js";
 import { renderOrganization, renderOrganizations } from "../controllers/organizationsController.js";
 import { renderCampaign, renderCampaigns } from "../controllers/campaignsController.js";
 import { renderUsers } from "../controllers/usersController.js";
@@ -17,6 +17,9 @@ const router = express.Router();
 
 router.get("/", renderHome);
 router.get("/login", renderLogin);
+
+// Chat interno: sólo con sesión (la conexión de Socket.IO también la exige)
+router.get("/chat", requireAuthView, renderChat);
 
 // Páginas de gestión de recursos
 router.get("/organizations", renderOrganizations);

@@ -1,11 +1,15 @@
 import express from "express";
 import dotenv from "dotenv";
+import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { Server } from "socket.io";
 
 import { conectarDB } from "./config/db.js";
 import { crearSesion } from "./config/session.js";
 import { revalidarUsuarioDeSesion } from "./middlewares/auth.js";
+import { registrarChat } from "./sockets/chat.js";
+import { crearAsistente } from "./services/asistente.js";
 
 import apiRoutes from "./routes/apiRoutes.js";
 import viewsRoutes from "./routes/viewsRoutes.js";
@@ -32,13 +36,16 @@ if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
 
-// Sesiones de usuario guardadas en MongoDB (ver config/session.js)
+// Sesiones de usuario guardadas en MongoDB (ver config/session.js). El mismo middleware
+// lo usa el chat, así la conexión de Socket.IO sabe quién es el usuario.
+let sesion;
 try {
-  app.use(crearSesion());
+  sesion = crearSesion();
 } catch (err) {
   console.error(err.message);
   process.exit(1);
 }
+app.use(sesion);
 
 // En cada pedido con sesión, vuelve a leer el usuario: una baja o un cambio de rol rigen al instante
 app.use(revalidarUsuarioDeSesion);
@@ -75,6 +82,13 @@ try {
   process.exit(1);
 }
 
-app.listen(PORT, () => {
+// Un solo servidor HTTP atiende las dos cosas: las peticiones comunes van a Express y las
+// del chat a Socket.IO. Por eso escucha el servidor HTTP y no la app de Express.
+const servidor = http.createServer(app);
+const io = new Server(servidor);
+io.engine.use(sesion);
+registrarChat(io, { asistente: crearAsistente() });
+
+servidor.listen(PORT, () => {
   console.log(`Servidor escuchando en http://localhost:${PORT}`);
 });
