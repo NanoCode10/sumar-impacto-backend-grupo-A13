@@ -47,6 +47,35 @@ export function crearLimitador(esperaMs = ESPERA_ENTRE_CONSULTAS_MS) {
 }
 
 /**
+ * Presencia por USUARIO, no por conexión: una misma persona puede tener varias pestañas,
+ * y al recargar la página la conexión nueva llega antes de que se cierre la vieja.
+ * entrar() devuelve true sólo si el usuario pasa de 0 a 1 conexiones; salir(), sólo si
+ * cierra la última. Así no hay avisos falsos de «se conectó» o «se desconectó».
+ */
+export function crearPresencia() {
+  const conexiones = new Map();
+  return {
+    entrar(usuarioId) {
+      const cantidad = (conexiones.get(usuarioId) ?? 0) + 1;
+      conexiones.set(usuarioId, cantidad);
+      return cantidad === 1;
+    },
+    salir(usuarioId) {
+      const cantidad = (conexiones.get(usuarioId) ?? 1) - 1;
+      if (cantidad <= 0) {
+        conexiones.delete(usuarioId);
+        return true;
+      }
+      conexiones.set(usuarioId, cantidad);
+      return false;
+    },
+    get usuarios() {
+      return conexiones.size;
+    }
+  };
+}
+
+/**
  * Exige sesión para conectarse. Relee el usuario de la base, igual que el resto del
  * sistema: un usuario dado de baja no entra aunque conserve la cookie.
  */
@@ -66,6 +95,7 @@ async function exigirSesion(socket, next) {
 
 export function registrarChat(io, { asistente, limitador = crearLimitador() }) {
   const ultimos = [];
+  const presencia = crearPresencia();
 
   function difundir(mensaje) {
     ultimos.push(mensaje);
@@ -80,8 +110,10 @@ export function registrarChat(io, { asistente, limitador = crearLimitador() }) {
 
     socket.emit("historial", ultimos);
     socket.emit("asistente", { configurado: asistente.configurado, prefijo: PREFIJO_ASISTENTE });
-    io.emit("conectados", io.engine.clientsCount);
-    socket.broadcast.emit("aviso", `${usuario.nombre} se conectó`);
+    if (presencia.entrar(usuario.id)) {
+      socket.broadcast.emit("aviso", `${usuario.nombre} se conectó`);
+    }
+    io.emit("conectados", presencia.usuarios);
 
     socket.on("mensaje", async (texto) => {
       const limpio = validarMensaje(texto);
@@ -113,8 +145,10 @@ export function registrarChat(io, { asistente, limitador = crearLimitador() }) {
     });
 
     socket.on("disconnect", () => {
-      io.emit("conectados", io.engine.clientsCount);
-      io.emit("aviso", `${usuario.nombre} se desconectó`);
+      if (presencia.salir(usuario.id)) {
+        io.emit("aviso", `${usuario.nombre} se desconectó`);
+      }
+      io.emit("conectados", presencia.usuarios);
     });
   });
 }
