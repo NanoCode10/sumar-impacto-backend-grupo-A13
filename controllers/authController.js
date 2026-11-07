@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import { NOMBRE_COOKIE } from "../config/session.js";
+import { datosDeSesion } from "../middlewares/auth.js";
 
 /**
  * POST /api/auth/login -> verifica credenciales e inicializa la sesión de usuario.
@@ -15,13 +16,7 @@ async function login(req, res, next) {
     }
 
     // Guarda los datos del usuario en la sesión de Express
-    req.session.user = {
-      id: user.id,
-      username: user.username,
-      name: user.name,
-      email: user.email,
-      role: user.role
-    };
+    req.session.user = datosDeSesion(user);
 
     res.status(200).json({
       message: "Inicio de sesión exitoso",

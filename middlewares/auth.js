@@ -3,6 +3,48 @@
  * Manejan el control de acceso en la API y en las vistas mediante express-session.
  */
 
+import User from "../models/User.js";
+
+/**
+ * Lo que se guarda del usuario en la sesión. Lo usan el login y la revalidación,
+ * así los dos guardan exactamente lo mismo.
+ */
+export function datosDeSesion(user) {
+  return {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    email: user.email,
+    role: user.role
+  };
+}
+
+/**
+ * revalidarUsuarioDeSesion: en cada pedido con sesión vuelve a leer el usuario de la base.
+ * Así una baja o un cambio de rol rigen en el próximo pedido, no cuando vence la sesión
+ * (es lo que permite revocar el acceso al instante, a diferencia de un token emitido).
+ *  - Si el usuario ya no existe o fue dado de baja (borrado lógico): se borra la sesión
+ *    y el pedido sigue como visitante sin sesión.
+ *  - Si existe: se actualizan en la sesión el rol y los datos actuales.
+ */
+export async function revalidarUsuarioDeSesion(req, res, next) {
+  const id = req.session?.user?.id;
+  if (!id) {
+    return next();
+  }
+
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      return req.session.destroy((err) => (err ? next(err) : next()));
+    }
+    req.session.user = datosDeSesion(user);
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
 /**
  * Lo único de la API que se puede usar sin sesión. Todo lo demás la exige
  * (denegar por defecto): una ruta nueva nace protegida aunque alguien se olvide

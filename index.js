@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 import { conectarDB } from "./config/db.js";
 import { crearSesion } from "./config/session.js";
+import { revalidarUsuarioDeSesion } from "./middlewares/auth.js";
 
 import apiRoutes from "./routes/apiRoutes.js";
 import viewsRoutes from "./routes/viewsRoutes.js";
@@ -38,6 +39,9 @@ try {
   console.error(err.message);
   process.exit(1);
 }
+
+// En cada pedido con sesión, vuelve a leer el usuario: una baja o un cambio de rol rigen al instante
+app.use(revalidarUsuarioDeSesion);
 
 // Pasa el usuario activo a res.locals para que las vistas Pug adapten su navegación
 app.use((req, res, next) => {
