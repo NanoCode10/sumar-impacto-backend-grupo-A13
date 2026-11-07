@@ -14,6 +14,15 @@ const ayuda = document.getElementById("asistente-ayuda");
 const form = document.getElementById("chat-form");
 const input = document.getElementById("texto");
 
+// La tarjeta del chat ocupa lo que queda de pantalla debajo del encabezado.
+const tarjeta = document.querySelector(".chat");
+function ajustarAlto() {
+  const arriba = tarjeta.getBoundingClientRect().top + window.scrollY;
+  tarjeta.style.height = `${Math.max(320, window.innerHeight - arriba - 16)}px`;
+}
+ajustarAlto();
+window.addEventListener("resize", ajustarAlto);
+
 const hora = (fecha) => new Date(fecha).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 
 function agregarMensaje({ autor, texto, fecha, tipo }) {

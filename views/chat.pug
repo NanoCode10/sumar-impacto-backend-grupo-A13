@@ -15,8 +15,15 @@ block content
         input#texto(type="text", name="texto", maxlength="500", required, autocomplete="off")
         button(type="submit") Enviar
 
+  //- La tarjeta ocupa el alto disponible de la pantalla (lo calcula public/js/chat.js, porque el
+  //- encabezado mide distinto en desktop y en celular) y la lista toma el espacio que sobra:
+  //- el campo para escribir queda siempre a la vista.
   style.
-    .chat #mensajes { list-style: none; padding: 0; margin: 1rem 0 0.5rem; height: 55vh; overflow-y: auto;
+    .chat { display: flex; flex-direction: column; box-sizing: border-box; }
+    .chat h2, .chat p { flex: none; }
+    .chat > p { margin: 0.25rem 0; }
+    .chat form label { margin-top: 0.25rem; }
+    .chat #mensajes { list-style: none; padding: 0; margin: 0.5rem 0; flex: 1; min-height: 8rem; overflow-y: auto;
       border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; }
     .chat #mensajes li { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e2e8f0; white-space: pre-wrap; overflow-wrap: anywhere; }
     .chat #mensajes li.asistente { background: #eef4ff; }
