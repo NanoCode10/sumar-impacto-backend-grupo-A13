@@ -24,10 +24,11 @@ usuarios, roles y un chat interno con un asistente de IA.
 
 ## Probarlo en línea
 
-**https://sumarimpacto-staging.onrender.com**
+**https://sumar-impacto-backend-grupo-a13.onrender.com**
 
-Entorno de prueba (rama `juanMa`). El de producción se publica desde `main`; el link definitivo
-está en la documentación de la entrega.
+Es el sitio de la entrega: se publica solo con cada cambio en `main`. Hay otro sitio,
+`sumarimpacto-staging.onrender.com`, que es sólo un entorno de prueba previo (ver
+[Despliegue](#despliegue)): no es el de la entrega.
 
 - La base de datos es **MongoDB Atlas**.
 - El plan gratuito de Render **se duerme tras 15 minutos sin uso**: el primer pedido puede tardar
@@ -285,6 +286,11 @@ de limpiarla. Necesitan el servicio de MongoDB en ejecución.
 En **Render** (proceso permanente: lo necesitan la sesión y el chat con WebSocket; Vercel no los
 admite) con **MongoDB Atlas**.
 
+| Entorno | Sitio | Rama | Publicación |
+|---|---|---|---|
+| **Producción** (el de la entrega) | https://sumar-impacto-backend-grupo-a13.onrender.com | `main` | Automática con cada push |
+| Staging (prueba previa) | https://sumarimpacto-staging.onrender.com | `juanMa` | Manual |
+
 - **Build:** `npm ci` · **Start:** `npm start` · **Health check:** `/` · Node 24.
 - **Variables:** `NODE_ENV=production`, `MONGO_URI` (usuario de base exclusivo de la app),
   `SESSION_SECRET` (generado por Render), `GEMINI_API_KEY` y `GEMINI_MODEL`.
@@ -298,7 +304,7 @@ Grupo A13. El detalle de las tareas de cada integrante está en la documentació
 | Integrante (GitHub) | Aportes principales |
 |---|---|
 | Mariano (NanoCode10) | Base MVC, ES Modules, MongoDB y Mongoose, seed, pantallas con `fetch`, tests, Atlas |
-| Daniela (dani_) | CRUD y vistas de la primera entrega; sesión y control de acceso por roles |
+| Daniela (dani_) | CRUD y vistas de la primera entrega; sesión y control de acceso por roles; logo y paleta de colores |
 | Fernando (fer) | Pruebas unitarias de la primera entrega; donantes y donaciones |
 | Emilse (Emi1000se) | Actualización de versiones (Express 5, Pug, Nodemon) |
 | Juan Manuel (JuanMA) | Integración, validaciones y reglas de negocio; usuarios y hash; seguridad de la sesión, permisos y control por propiedad; donaciones con criterio contable; chat con IA; despliegue |
