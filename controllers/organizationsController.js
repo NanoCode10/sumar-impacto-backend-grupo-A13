@@ -1,87 +1,167 @@
-const Organization = require("../models/Organization");
+import Organization from "../models/Organization.js";
+import Campaign from "../models/Campaign.js";
 
 /**
  * RESPONSABILIDAD DE LA CAPA CONTROLLER
  * El controller traduce entre HTTP y el Model:
  *  - lee lo que llega en req (params, query, body);
- *  - llama al Model correspondiente (Organization);
+ *  - llama al Model correspondiente (Organization, y Campaign para listar sus campañas);
  *  - decide el status HTTP y el cuerpo de la respuesta (res);
- *  - NO accede al JSON ni contiene lógica de persistencia (eso es del Model).
+ *  - NO accede a la base directamente ni contiene reglas de negocio (eso es del Model).
  *
- * ESTADO
- *  - getOrganizationById -> IMPLEMENTADO y funcionando. NO modificar.
- *  - getOrganizations    -> PENDIENTE (esqueleto abajo).
- *  - createOrganization  -> PENDIENTE (esqueleto abajo).
- *  - updateOrganization  -> PENDIENTE (esqueleto abajo).
- *  - deleteOrganization  -> PENDIENTE (esqueleto abajo).
+ * Las consultas a MongoDB son asincrónicas: cada función es async y espera al
+ * Model con await. Si algo falla (un 409 del Model o un error de la base), el
+ * catch lo delega con next(err) al errorHandler global (middlewares/errors.js).
+ *
+ * Los campos obligatorios, los tipos y los valores permitidos los controla antes
+ * middlewares/validateBody.js, que además deja en req.body el valor canónico.
+ *
+ * Las funciones de la API (bajo /api) responden JSON. renderOrganization y
+ * renderOrganizations responden HTML y las usa routes/viewsRoutes.js.
  */
 
-function getOrganizationById(req, res) {
-  // Extrae el id de los parámetros de la solicitud y lo convierte a número
-  const id = Number(req.params.id);
-
-  // Busca la organización en la base de datos utilizando el modelo Organization y el id proporcionado
-  const organization = Organization.findById(id);
-
-  // Si no se encuentra la organización, devuelve un error 404 con un mensaje adecuado
-  if (!organization) {
-    return res.status(404).json({ error: "Organización no encontrada" });
+/**
+ * GET /api/organizations  -> listado, con filtros opcionales por type y status.
+ * Los filtros los valida y canoniza validateQuery, que los deja en req.filtros.
+ */
+async function getOrganizations(req, res, next) {
+  try {
+    const organizations = await Organization.buscarTodas(req.filtros);
+    res.status(200).json(organizations);
+  } catch (err) {
+    next(err);
   }
-  // Si se encuentra la organización, renderiza la vista "organization" pasando la organización como contexto
-  res.render("organization", { organization });
 }
 
 /**
- * GET /organizations  -> listado de todas las organizaciones.
+ * GET /api/organizations/:id/campaigns  -> las campañas de una organización.
  */
-function getOrganizations(req, res) {
-  // TODO: no recibe nada especial de req (a futuro podría aceptar filtros en req.query).
-  // TODO: llamar a Organization.findAll() para obtener el array de instancias.
-  // TODO: responder 200 con res.json(organizations)
-  //       (o res.render(...) si el grupo decide devolver HTML en lugar de JSON).
-  throw new Error("TODO: implementar getOrganizations(req, res)");
+async function getOrganizationCampaigns(req, res, next) {
+  try {
+    const { id } = req.params;
+    const organization = await Organization.findById(id);
+
+    if (!organization) {
+      return res.status(404).json({ error: "Organización no encontrada" });
+    }
+
+    const campaigns = await Campaign.buscarTodas({ organizationId: id });
+    res.status(200).json(campaigns);
+  } catch (err) {
+    next(err);
+  }
 }
 
 /**
- * POST /organizations  -> crea una organización.
+ * GET /api/organizations/:id  -> una organización en JSON.
  */
-function createOrganization(req, res) {
-  // TODO: leer los datos de req.body: name, type, email, status.
-  //       IGNORAR cualquier id que venga en el body (el id lo genera el Model).
-  // TODO: (opcional, a acordar) validar que los campos obligatorios estén presentes;
-  //       si faltan, responder 400 con un mensaje de error.
-  // TODO: llamar a Organization.create({ name, type, email, status }).
-  // TODO: responder 201 con res.json(organizationCreada).
-  throw new Error("TODO: implementar createOrganization(req, res)");
+async function getOrganizationById(req, res, next) {
+  try {
+    const organization = await Organization.findById(req.params.id);
+
+    if (!organization) {
+      return res.status(404).json({ error: "Organización no encontrada" });
+    }
+
+    res.status(200).json(organization);
+  } catch (err) {
+    next(err);
+  }
 }
 
 /**
- * PUT /organizations/:id  -> actualiza una organización existente.
+ * GET /organizations/:id  -> la misma organización, como página Pug.
  */
-function updateOrganization(req, res) {
-  // TODO: obtener el id con Number(req.params.id) (la validación de formato la hará el middleware validateId).
-  // TODO: leer los campos a actualizar de req.body: name, type, email, status.
-  // TODO: llamar a Organization.update(id, data).
-  // TODO: si el Model devuelve null -> responder 404 (recurso inexistente).
-  // TODO: si devuelve la organización actualizada -> responder 200 con res.json(organization).
-  throw new Error("TODO: implementar updateOrganization(req, res)");
+async function renderOrganization(req, res, next) {
+  try {
+    const organization = await Organization.findById(req.params.id);
+
+    // Es una página HTML: el 404 lo arma el errorHandler con la vista error.pug.
+    if (!organization) {
+      const err = new Error("Organización no encontrada");
+      err.statusCode = 404;
+      return next(err);
+    }
+
+    res.render("organization", { organization });
+  } catch (err) {
+    next(err);
+  }
 }
 
 /**
- * DELETE /organizations/:id  -> elimina una organización.
+ * GET /organizations  -> página de gestión de organizaciones.
+ * La tabla no se arma acá: la completa el navegador con fetch() contra la API
+ * (public/js/organizations.js). Sólo se pasan los valores permitidos para los
+ * <select>, así siguen definidos una única vez en el Model.
  */
-function deleteOrganization(req, res) {
-  // TODO: obtener el id con Number(req.params.id).
-  // TODO: NO implementar hasta que el grupo defina la estrategia de eliminación
-  //       (ver Organization.delete: física / lógica / por status).
-  // TODO: según la estrategia, la respuesta será 204 (sin cuerpo) o 200 con el recurso afectado.
-  // TODO: contemplar el caso de id inexistente -> responder 404.
-  throw new Error("TODO: implementar deleteOrganization(req, res)");
+function renderOrganizations(req, res) {
+  res.render("organizations", {
+    title: "Organizaciones - SumarImpacto",
+    types: Organization.TYPES,
+    statuses: Organization.STATUSES
+  });
 }
 
-// NOTA: por ahora SOLO se exporta getOrganizationById, que es lo único conectado a una ruta.
-// Los esqueletos getOrganizations / createOrganization / updateOrganization / deleteOrganization
-// quedan definidos y documentados en este archivo pero SIN exportar, para dejar explícito
-// que son trabajo PENDIENTE y evitar que se enganchen al router por error.
-// TODO: al implementar cada uno, agregarlo a module.exports y recién ahí conectarlo en routes/organizationsRoutes.js.
-module.exports = { getOrganizationById };
+/**
+ * POST /api/organizations  -> crea una organización.
+ * Si no se envía status, el schema aplica su valor por defecto (pendiente).
+ */
+async function createOrganization(req, res, next) {
+  try {
+    const { name, type, email, status } = req.body;
+
+    const newOrganization = await Organization.create({ name, type, email, status });
+    res.status(201).json(newOrganization);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * PUT /api/organizations/:id  -> actualiza una organización existente.
+ */
+async function updateOrganization(req, res, next) {
+  try {
+    const { name, type, email, status } = req.body;
+
+    const updatedOrganization = await Organization.actualizar(req.params.id, { name, type, email, status });
+
+    if (!updatedOrganization) {
+      return res.status(404).json({ error: "Organización no encontrada" });
+    }
+
+    res.status(200).json(updatedOrganization);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * DELETE /api/organizations/:id  -> elimina una organización.
+ * Organization.eliminar lanza un 409 si la organización todavía tiene campañas.
+ */
+async function deleteOrganization(req, res, next) {
+  try {
+    const deletedOrganization = await Organization.eliminar(req.params.id);
+
+    if (!deletedOrganization) {
+      return res.status(404).json({ error: "Organización no encontrada" });
+    }
+
+    res.status(200).json({ message: "Organización eliminada correctamente", organization: deletedOrganization });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export {
+  getOrganizations,
+  getOrganizationCampaigns,
+  getOrganizationById,
+  renderOrganization,
+  renderOrganizations,
+  createOrganization,
+  updateOrganization,
+  deleteOrganization
+};

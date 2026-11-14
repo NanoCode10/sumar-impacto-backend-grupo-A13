@@ -1,16 +1,28 @@
 {
-  "name": "sumar-impacto-backend-grupo-17",
+  "name": "sumar-impacto-backend-grupo-a13",
   "version": "1.0.0",
-  "description": "TP1 Desarrollo de Sistemas Web Back End - IFTS 29 - Grupo 17",
+  "description": "TP1 Desarrollo de Sistemas Web Back End - IFTS 29 - Grupo A13",
   "main": "index.js",
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test": "node --test",
+    "setup": "node scripts/setup.js",
+    "seed": "node scripts/seed.js"
   },
   "dependencies": {
+    "@google/genai": "^3.0.0",
+    "connect-mongo": "^6.0.0",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "pug": "^3.0.4"
+    "express-session": "^1.18.1",
+    "mongoose": "^9.11.2",
+    "pug": "^3.0.4",
+    "socket.io": "^4.8.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

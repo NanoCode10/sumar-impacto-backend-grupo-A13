@@ -1,10 +1,18 @@
-doctype html
-html
-  head
-    title SumarImpacto
-  body
-    h1 SumarImpacto
-    p Nombre: #{organization.name}
-    p Tipo: #{organization.type}
-    p Email: #{organization.email}
-    p Estado: #{organization.status}
+extends layout
+
+block content
+  .card
+    h2 Organización: #{organization.name}
+    .field
+      .field-label Nombre
+      .field-value= organization.name
+    .field
+      .field-label Tipo
+      .field-value= organization.type
+    .field
+      .field-label Email
+      .field-value= organization.email
+    .field
+      .field-label Estado
+      .field-value
+        span.badge(data-estado=organization.status)= organization.status

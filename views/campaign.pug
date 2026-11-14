@@ -1,0 +1,25 @@
+extends layout
+
+block content
+  .card
+    h2 Campaña: #{campaign.title}
+    .field
+      .field-label Organización
+      .field-value
+        if campaign.organizationId
+          a(href=`/organizations/${campaign.organizationId._id}`)= campaign.organizationId.name
+        else
+          | (organización inexistente)
+    .field
+      .field-label Título
+      .field-value= campaign.title
+    .field
+      .field-label Descripción
+      .field-value= campaign.description
+    .field
+      .field-label Monto Objetivo
+      .field-value $#{campaign.targetAmount}
+    .field
+      .field-label Estado
+      .field-value
+        span.badge(data-estado=campaign.status)= campaign.status

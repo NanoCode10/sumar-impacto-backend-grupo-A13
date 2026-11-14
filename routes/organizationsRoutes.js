@@ -1,34 +1,31 @@
-const express = require("express");
+import express from "express";
 
-// import Middlewares
-const validateId = require("../middlewares/validateId");
+// Middlewares
+import validateId from "../middlewares/validateId.js";
+import { validateOrganization } from "../middlewares/validateBody.js";
+import { validateOrganizationQuery } from "../middlewares/validateQuery.js";
+import { hasRole } from "../middlewares/auth.js";
 
-// import Controllers
-const { getOrganizationById } = require("../controllers/organizationsController");
+// Controllers
+import {
+  getOrganizations,
+  getOrganizationCampaigns,
+  getOrganizationById,
+  createOrganization,
+  updateOrganization,
+  deleteOrganization
+} from "../controllers/organizationsController.js";
 
-// Create a new router instance
 const router = express.Router();
 
-// Define la ruta dinamica para obtener una organización por su ID, aplicando el middleware validateId antes de llamar al controlador getOrganizationById
+// Consultas públicas (lectura de organizaciones y sus campañas)
+router.get("/", validateOrganizationQuery, getOrganizations);
 router.get("/:id", validateId, getOrganizationById);
+router.get("/:id/campaigns", validateId, getOrganizationCampaigns);
 
-/**
- * RUTAS FUTURAS DEL RECURSO /organizations
- * Están COMENTADAS a propósito: los controllers todavía no están implementados ni exportados.
- * Para activar cada una:
- *   1. implementar y exportar el controller correspondiente en controllers/organizationsController.js;
- *   2. importarlo arriba junto a getOrganizationById;
- *   3. descomentar la línea de abajo.
- *
- * GET "/"        -> listado de la colección. Controller: getOrganizations. Sin middleware de id.
- * POST "/"       -> crear organización. Controller: createOrganization. Requiere app.use(express.json()) (ya está en index.js).
- * PUT "/:id"     -> actualizar. Controller: updateOrganization. Middleware: validateId (valida el formato del id).
- * DELETE "/:id"  -> eliminar. Controller: deleteOrganization. Middleware: validateId. Depende de la estrategia de borrado acordada.
- */
-// router.get("/", getOrganizations);
-// router.post("/", createOrganization);
-// router.put("/:id", validateId, updateOrganization);
-// router.delete("/:id", validateId, deleteOrganization);
+// Operaciones de gestión protegidas: sólo superadmin y administrador (Entrega 3)
+router.post("/", hasRole("superadmin", "administrador"), validateOrganization("create"), createOrganization);
+router.put("/:id", validateId, hasRole("superadmin", "administrador"), validateOrganization("update"), updateOrganization);
+router.delete("/:id", validateId, hasRole("superadmin", "administrador"), deleteOrganization);
 
-// Exporta el router para que pueda ser utilizado en otros archivos, como index.js
-module.exports = router;
+export default router;

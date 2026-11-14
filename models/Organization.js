@@ -1,114 +1,138 @@
-const fs = require("fs");
-const path = require("path");
+import mongoose from "mongoose";
 
-const dataPath = path.join(__dirname, "..", "data", "organizations.json");
+// Import circular: Campaign también importa Organization. Funciona porque los
+// dos modelos sólo se usan entre sí DENTRO de los métodos, nunca al cargar el
+// módulo. No usar Campaign en código de nivel superior.
+import Campaign from "./Campaign.js";
+import softDelete from "../utils/softDelete.js";
 
 /**
- * RESPONSABILIDAD DE LA CLASE
- * Organization es el Model del dominio "organización". Se encarga de:
- *  - representar una organización en memoria (constructor);
- *  - leer y (a futuro) escribir la persistencia en data/organizations.json;
- *  - ofrecer métodos estáticos de acceso a datos (findById, findAll, create, update, delete).
- * La capa de rutas/controllers NO debe leer el JSON directamente: siempre pasa por este Model.
+ * MODELO Organization (Mongoose)
+ * El schema define los campos, sus tipos y sus validaciones; MongoDB guarda cada
+ * organización como un documento de la colección "organizations".
  *
- * ATRIBUTOS DE UNA INSTANCIA
- *  - id     {number}  Identificador único. Lo genera el servidor, nunca el cliente.
- *  - name   {string}  Nombre de la organización.
- *  - type   {string}  Tipo/categoría de la organización (ej: "ONG", "fundación").
- *  - email  {string}  Email de contacto.
- *  - status {string}  Estado de la organización (ej: "active", "inactive").
+ * Es la segunda capa de validación: la primera es middlewares/validateBody.js,
+ * que corre antes del controller y arma los mensajes de error de la API.
  *
- * ESTADO DE LOS MÉTODOS
- *  - constructor  -> IMPLEMENTADO y funcionando.
- *  - findById     -> IMPLEMENTADO y funcionando (solo lectura).
- *  - findAll      -> PENDIENTE.
- *  - create       -> PENDIENTE.
- *  - update       -> PENDIENTE.
- *  - delete       -> PENDIENTE (falta acordar estrategia de eliminación).
+ * MÉTODOS
+ *  - Propios (en español), con las reglas de negocio:
+ *      buscarTodas(filtros), actualizar(id, datos), eliminar(id).
+ *  - De Mongoose, usados tal cual donde no hay reglas: findById, create.
+ * Los errores de negocio se lanzan como Error con statusCode (el Model no tiene
+ * res); el controller los delega al errorHandler.
  */
-class Organization {
-  constructor(id, name, type, email, status) {
-    this.id = id;
-    this.name = name;
-    this.type = type;
-    this.email = email;
-    this.status = status;
-  }
 
-  static findById(id) {
-    const rawData = fs.readFileSync(dataPath, "utf-8");
-    const organizations = JSON.parse(rawData);
+// Valores permitidos del dominio. Se definen una sola vez y el resto del código
+// los referencia (validateBody, validateQuery, vistas).
+const TYPES = ["ONG", "fundación", "comedor"];
+const STATUSES = ["pendiente", "aprobada", "suspendida", "desvinculada"];
 
-    const found = organizations.find((org) => org.id === id);
+// Único estado que habilita a tener campañas. Se referencia desde Campaign.
+const APPROVED = "aprobada";
 
-    if (!found) {
-      return null;
+// Formato de email. Lo usa también validateBody.
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const organizationSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: [true, "name es obligatorio"],
+      trim: true,
+      minlength: [3, "name debe ser un texto de 3 a 100 caracteres"],
+      maxlength: [100, "name debe ser un texto de 3 a 100 caracteres"]
+    },
+    type: {
+      type: String,
+      required: [true, "type es obligatorio"],
+      enum: { values: TYPES, message: `type inválido. Valores permitidos: ${TYPES.join(", ")}` }
+    },
+    email: {
+      type: String,
+      required: [true, "email es obligatorio"],
+      trim: true,
+      lowercase: true,
+      match: [EMAIL, "email no tiene un formato válido"]
+    },
+    status: {
+      type: String,
+      enum: { values: STATUSES, message: `status inválido. Valores permitidos: ${STATUSES.join(", ")}` },
+      default: "pendiente"
     }
+  },
+  {
+    // Agrega y mantiene automáticamente createdAt y updatedAt en cada documento.
+    timestamps: true,
+    // Cómo se convierte a JSON en las respuestas de la API: "id" como texto en
+    // lugar de "_id", y sin "__v" (versión interna de Mongoose).
+    toJSON: {
+      versionKey: false,
+      transform: (doc, ret) => {
+        const { _id, ...resto } = ret;
+        return { id: _id.toString(), ...resto };
+      }
+    }
+  }
+);
 
-    return new Organization(found.id, found.name, found.type, found.email, found.status);
+// Borrado lógico: campo deletedAt y filtro automático en todas las consultas.
+organizationSchema.plugin(softDelete);
+
+// Deja sólo los campos que vinieron: en un PUT los demás no se tocan.
+const soloDefinidos = (datos) =>
+  Object.fromEntries(Object.entries(datos).filter(([, valor]) => valor !== undefined));
+
+/**
+ * Organizaciones ordenadas por fecha de alta. Sin filtros, todas.
+ * Los filtros ya llegan validados y con el valor canónico (validateQuery), así
+ * que se comparan tal cual contra lo guardado.
+ * @param {{type?: string, status?: string}} filtros
+ */
+organizationSchema.statics.buscarTodas = function (filtros = {}) {
+  return this.find(filtros).sort({ _id: 1 });
+};
+
+/**
+ * Actualiza sólo los campos enviados. Devuelve la organización actualizada, o
+ * null si no existe.
+ */
+organizationSchema.statics.actualizar = function (id, datos) {
+  // returnDocument: "after" devuelve el documento ya actualizado (en Mongoose 9
+  // reemplaza a la opción new: true, que quedó deprecada). runValidators aplica
+  // las validaciones del schema también en la actualización.
+  return this.findByIdAndUpdate(id, soloDefinidos(datos), { returnDocument: "after", runValidators: true });
+};
+
+/**
+ * Elimina una organización (borrado lógico). Devuelve la organización eliminada,
+ * o null si no existe o ya estaba eliminada.
+ * Regla de negocio: una organización con campañas vigentes no se elimina (409),
+ * porque esas campañas quedarían apuntando a una organización que ya no existe.
+ * Las campañas eliminadas no cuentan: el middleware de Campaign las excluye.
+ */
+organizationSchema.statics.eliminar = async function (id) {
+  const organization = await this.findById(id);
+  if (!organization) {
+    return null;
   }
 
-  /**
-   * Devuelve TODAS las organizaciones como array de instancias de Organization.
-   */
-  static findAll() {
-    // TODO: leer el archivo data/organizations.json con fs.readFileSync(dataPath, "utf-8").
-    // TODO: parsear el contenido con JSON.parse para obtener un array de objetos planos.
-    // TODO: recorrer ese array (map) y convertir cada objeto plano en una instancia
-    //       new Organization(obj.id, obj.name, obj.type, obj.email, obj.status).
-    // TODO: devolver el array de instancias resultante.
-    // TODO: si el archivo pudiera no existir, definir con el grupo qué hacer
-    //       (por ahora asumimos que siempre existe, igual que en findById).
-    throw new Error("TODO: implementar Organization.findAll()");
+  const cantidad = await Campaign.countDocuments({ organizationId: id });
+  if (cantidad > 0) {
+    const err = new Error(`La organización «${organization.name}» tiene ${cantidad} campaña(s) y no puede eliminarse`);
+    err.statusCode = 409;
+    throw err;
   }
 
-  /**
-   * Crea una nueva organización, la persiste y devuelve el recurso creado.
-   * @param {{name: string, type: string, email: string, status: string}} data
-   */
-  static create(data) {
-    // TODO: leer data/organizations.json y parsearlo a un array (igual que en findAll).
-    // TODO: generar el nuevo id EN EL SERVIDOR (ej: mayor id existente + 1, o 1 si está vacío).
-    // TODO: NO usar ningún id que venga en "data" / en el body del request: se ignora por seguridad.
-    // TODO: crear la instancia new Organization(nuevoId, data.name, data.type, data.email, data.status).
-    // TODO: agregar la nueva organización al array (push).
-    // TODO: serializar el array completo con JSON.stringify(array, null, 2) para que quede legible.
-    // TODO: escribir el resultado en dataPath con fs.writeFileSync.
-    // TODO: devolver la instancia recién creada (el recurso creado).
-    throw new Error("TODO: implementar Organization.create(data)");
-  }
+  organization.deletedAt = new Date();
+  await organization.save();
+  return organization;
+};
 
-  /**
-   * Actualiza los campos permitidos de una organización existente.
-   * @param {number} id
-   * @param {{name?: string, type?: string, email?: string, status?: string}} data
-   * @returns {Organization|null} la organización actualizada, o null si no existe.
-   */
-  static update(id, data) {
-    // TODO: leer y parsear data/organizations.json a un array.
-    // TODO: buscar el índice de la organización cuyo id coincide (findIndex).
-    // TODO: si no se encuentra, devolver null (el controller responderá 404).
-    // TODO: actualizar SOLO los campos permitidos: name, type, email, status.
-    //       El id NO se toca: se mantiene el original.
-    // TODO: volver a persistir el array completo con JSON.stringify(array, null, 2) + fs.writeFileSync.
-    // TODO: devolver una instancia de Organization con los datos ya actualizados.
-    throw new Error("TODO: implementar Organization.update(id, data)");
-  }
+const Organization = mongoose.model("Organization", organizationSchema);
 
-  /**
-   * Elimina una organización.
-   * @param {number} id
-   */
-  static delete(id) {
-    // TODO: NO implementar todavía. Primero el grupo debe acordar la ESTRATEGIA de eliminación:
-    //   a) eliminación física: sacar el objeto del array y persistir el JSON sin ese registro;
-    //   b) eliminación lógica: mantener el registro pero marcarlo (ej: deleted: true);
-    //   c) mediante status: cambiar status a "inactive" / "archived" y no borrar nada.
-    // TODO: cada opción impacta a findById/findAll (¿deben seguir devolviendo los eliminados?).
-    // TODO: definir también qué pasa con las Campaign asociadas a esa Organization.
-    // TODO: recién cuando haya decisión de equipo, implementar aquí la opción elegida.
-    throw new Error("TODO: implementar Organization.delete(id) (falta acordar estrategia: física / lógica / por status)");
-  }
-}
+Organization.TYPES = TYPES;
+Organization.STATUSES = STATUSES;
+Organization.APPROVED = APPROVED;
+Organization.EMAIL = EMAIL;
 
-module.exports = Organization;
+export default Organization;

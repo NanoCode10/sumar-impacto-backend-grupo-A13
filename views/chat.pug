@@ -1,0 +1,39 @@
+extends layout
+
+block content
+  .card.chat
+    h2 Chat interno
+    p#asistente-ayuda Mensajes en tiempo real entre los usuarios del sistema.
+    p.chat-estado Conectados: #[span#conectados 0]
+
+    ul#mensajes(aria-live="polite")
+    p#aviso(role="status")
+
+    form#chat-form
+      label(for="texto") Mensaje
+      .chat-envio
+        input#texto(type="text", name="texto", maxlength="500", required, autocomplete="off")
+        button(type="submit") Enviar
+
+  //- La tarjeta ocupa el alto disponible de la pantalla (lo calcula public/js/chat.js, porque el
+  //- encabezado mide distinto en desktop y en celular) y la lista toma el espacio que sobra:
+  //- el campo para escribir queda siempre a la vista.
+  style.
+    .chat { display: flex; flex-direction: column; box-sizing: border-box; }
+    .chat h2, .chat p { flex: none; }
+    .chat > p { margin: 0.25rem 0; }
+    .chat form label { margin-top: 0.25rem; }
+    .chat #mensajes { list-style: none; padding: 0; margin: 0.5rem 0; flex: 1; min-height: 8rem; overflow-y: auto;
+      border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; }
+    .chat #mensajes li { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e2e8f0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .chat #mensajes li.asistente { background: #eef4ff; }
+    .chat .autor { font-weight: 600; margin-right: 0.35rem; }
+    .chat .hora { color: #64748b; font-size: 0.8rem; margin-right: 0.35rem; }
+    .chat #aviso { min-height: 1.3em; color: #64748b; font-style: italic; margin: 0; }
+    .chat .chat-envio { display: flex; gap: 0.5rem; }
+    .chat .chat-envio input { flex: 1; min-width: 0; }
+
+  //- Primero el cliente que publica el propio servidor de Socket.IO; después el script de la página.
+  script(src=`/js/comun.js?v=${versionEstaticos}`)
+  script(src="/socket.io/socket.io.js")
+  script(src=`/js/chat.js?v=${versionEstaticos}`)
